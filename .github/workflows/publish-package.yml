@@ -1,0 +1,76 @@
+name: Publish GitHub Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Tag Release yang sudah berisi JAR
+        required: true
+        default: v8.1.4-zelyff.1-dev
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Java and Maven authentication
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Download release JAR and publish package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${RELEASE_TAG#v}"
+          if [[ ! "$version" =~ ^[0-9][A-Za-z0-9._+-]*$ ]]; then
+            echo "Format versi Release tidak valid."
+            exit 1
+          fi
+
+          jar="RedProtect-${version}.jar"
+
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$jar" \
+            --dir dist
+
+          cat > package.pom <<EOF
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>io.github.zelyff</groupId>
+            <artifactId>redprotect</artifactId>
+            <version>${version}</version>
+            <packaging>jar</packaging>
+            <name>RedProtect Zelyff Fork</name>
+            <description>RedProtect fork maintained by Zelyff, based on FabioZumbi12's RedProtect.</description>
+            <url>https://github.com/Zelyff/RedProtect</url>
+            <licenses>
+              <license>
+                <name>GNU General Public License v3.0</name>
+                <url>https://www.gnu.org/licenses/gpl-3.0.html</url>
+              </license>
+            </licenses>
+          </project>
+          EOF
+
+          mvn -B -ntp \
+            org.apache.maven.plugins:maven-deploy-plugin:3.2.0:deploy-file \
+            "-Dfile=dist/${jar}" \
+            -DpomFile=package.pom \
+            -DrepositoryId=github \
+            "-Durl=https://maven.pkg.github.com/${GITHUB_REPOSITORY,,}"
