@@ -47,6 +47,12 @@ import java.util.concurrent.ExecutionException;
 public class RedefineRegionBuilder extends RegionBuilder {
 
     public RedefineRegionBuilder(Player p, Region old, Location loc1, Location loc2) {
+        this(p, old, loc1, loc2, null);
+    }
+
+    // Zelyff: prepare replacement without removing the old region before commit.
+    public RedefineRegionBuilder(Player p, Region old, Location loc1, Location loc2, java.util.function.BooleanSupplier commitGuard) {
+        if (commitGuard != null && (!Bukkit.isPrimaryThread() || !commitGuard.getAsBoolean())) return;
         if (loc1 == null || loc2 == null) {
             if (RedProtect.get().hooks.checkWe()) {
                 Location[] pos = WEHook.getWESelection(p);
@@ -92,7 +98,7 @@ public class RedefineRegionBuilder extends RegionBuilder {
                 maxy = RedProtect.get().getConfigManager().configRoot().region_settings.claim.maxy;
         }
 
-        Region newRegion = new Region(old.getName(), old.getAdmins(), old.getMembers(), old.getLeaders(), new int[]{loc1.getBlockX(), loc1.getBlockX(), loc2.getBlockX(), loc2.getBlockX()}, new int[]{loc1.getBlockZ(), loc1.getBlockZ(), loc2.getBlockZ(), loc2.getBlockZ()}, miny, maxy, old.getPrior(), w.getName(), old.getDate(), old.getFlags(), old.getWelcome(), old.getValue(), old.getTPPoint(), old.canDelete(), old.canPurge());
+        Region newRegion = new Region(old.getName(), commitGuard == null ? old.getAdmins() : new HashSet<>(old.getAdmins()), commitGuard == null ? old.getMembers() : new HashSet<>(old.getMembers()), commitGuard == null ? old.getLeaders() : new HashSet<>(old.getLeaders()), new int[]{loc1.getBlockX(), loc1.getBlockX(), loc2.getBlockX(), loc2.getBlockX()}, new int[]{loc1.getBlockZ(), loc1.getBlockZ(), loc2.getBlockZ(), loc2.getBlockZ()}, miny, maxy, old.getPrior(), w.getName(), old.getDate(), commitGuard == null ? old.getFlags() : br.net.fabiozumbi12.RedProtect.Bukkit.enhancements.RegionSnapshot.copyFlags(old.getFlags()), old.getWelcome(), old.getValue(), old.getTPPoint(), old.canDelete(), old.canPurge(), commitGuard != null);
 
         Set<String> othersName = new HashSet<>();
         Region otherrg;
@@ -106,7 +112,8 @@ public class RedefineRegionBuilder extends RegionBuilder {
             return;
         }
 
-        newRegion.setPrior(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
+        if (commitGuard == null) newRegion.setPrior(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
+        else newRegion.setDraftPriority(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
 
         int pLimit = RedProtect.get().getPermissionHandler().getPlayerBlockLimit(p);
         int totalArea = RedProtect.get().getRegionManager().getTotalRegionSize(pName, p.getWorld().getName());
@@ -177,11 +184,13 @@ public class RedefineRegionBuilder extends RegionBuilder {
             }
 
             if (peco >= reco) {
+                if (commitGuard == null) {
                 if (reco > 0)
                     RedProtect.get().economy.withdrawPlayer(p, Math.abs(reco));
                 if (reco < 0)
                     RedProtect.get().economy.depositPlayer(p, Math.abs(reco));
                 p.sendMessage(RedProtect.get().getLanguageManager().get("economy.newRegion.claimed").replace("{price}", RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco + " " + RedProtect.get().getConfigManager().ecoRoot().economy_name));
+                }
             } else {
                 RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.notenought.money", new Replacer[]{new Replacer("{price}", RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco)});
                 return;
@@ -190,7 +199,9 @@ public class RedefineRegionBuilder extends RegionBuilder {
 
         //fire event
         RedefineRegionEvent event = new RedefineRegionEvent(old, newRegion, p);
-        try {
+        if (commitGuard != null) {
+            Bukkit.getPluginManager().callEvent(event);
+        } else try {
             RedefineRegionEvent finalEvent = event;
             event = Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
                 Bukkit.getPluginManager().callEvent(finalEvent);
@@ -204,8 +215,21 @@ public class RedefineRegionBuilder extends RegionBuilder {
         }
 
         newRegion = event.getNewRegion();
+        if (newRegion == null) return;
+        if (commitGuard != null) {
+            if (!commitGuard.getAsBoolean()) return;
+            if (RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.enable && RedProtect.get().hooks.checkVault() && !p.hasPermission("redprotect.eco.bypass")) {
+                net.milkbowl.vault.economy.EconomyResponse response = null;
+                if (reco > 0) response = RedProtect.get().economy.withdrawPlayer(p, reco);
+                if (reco < 0) response = RedProtect.get().economy.depositPlayer(p, -reco);
+                if (response != null && !response.transactionSuccess()) {
+                    p.sendMessage("§cTransaksi claim gagal; wilayah tidak diubah."); return;
+                }
+            }
+        }
 
-        RedProtect.get().getRegionManager().remove(old, w.getName());
+
+        if (commitGuard == null) RedProtect.get().getRegionManager().remove(old, w.getName());
 
         int claimLimit = RedProtect.get().getPermissionHandler().getPlayerClaimLimit(p);
         int claimused = RedProtect.get().getRegionManager().getPlayerRegions(p.getUniqueId().toString(), w.getName());

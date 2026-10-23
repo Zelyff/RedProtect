@@ -1,0 +1,19 @@
+requirement_id,requirement,design_file,test_cases,release_gate
+FR-01,Golden shovel two-corner claim,design/CLAIM-INTERACTION.md,T-002;T-003;T-004;T-005;T-009,G2
+FR-02,Golden shovel resize,design/CLAIM-INTERACTION.md,T-006;T-007;T-008,G2
+FR-03,Stick inspect,design/CLAIM-INTERACTION.md,T-010;T-011,G2
+FR-04,Nearby inspect,design/CLAIM-INTERACTION.md,T-010;T-030,G2
+FR-05,Exactly three border modes,design/BORDER-RENDERING.md,T-012;T-013;T-016,G3
+FR-06,Java BLOCK/HYBRID glow,design/BORDER-RENDERING.md,T-014;T-015;T-016;T-017,G3
+FR-07,Bedrock renderer fallback,design/BORDER-RENDERING.md,T-018,G3
+FR-08,One-to-one HOCON to YAML,engineering/YAML-MIGRATION.md,T-022;T-023;T-024;T-025;T-026,G1
+FR-09,Config values/default preservation,engineering/YAML-MIGRATION.md,T-022;T-025;T-027,G1
+FR-10,Bedrock native Forms optional,design/BEDROCK-FORMS.md,T-019;T-020;T-021,G4
+FR-11,Legacy Java GUI/commands preserved,engineering/COMPATIBILITY.md,T-001;T-028;T-029,G5
+FR-12,Feature off equivalent to upstream,engineering/COMPATIBILITY.md,T-001;T-027;T-029,G5
+FR-13,Zelyff and upstream credits,docs/CREDITS-LICENSE.md,release legal check,G6
+FR-14,Maven CI reproducible,engineering/BUILD-AND-RELEASE.md,mvn verify; dependency tree,G0
+FR-15,Preserve existing production claim database and schema,engineering/PRODUCTION-MIGRATION-AND-ROLLBACK.md,T-035;T-036;T-039;T-040,G7
+FR-16,Staging isolated from production storage,engineering/PRODUCTION-MIGRATION-AND-ROLLBACK.md,T-037,G7
+FR-17,Full consistent backup and verified restore,engineering/PRODUCTION-MIGRATION-AND-ROLLBACK.md,T-038;T-044;T-045;T-046,G7
+FR-18,Production GO/NO-GO and failure access gate,templates/PRODUCTION-PREFLIGHT.md,T-041;T-042;T-043;T-045,G7

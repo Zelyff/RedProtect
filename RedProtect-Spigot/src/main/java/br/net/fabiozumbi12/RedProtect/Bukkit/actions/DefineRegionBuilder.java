@@ -47,11 +47,17 @@ import java.util.concurrent.ExecutionException;
 public class DefineRegionBuilder extends RegionBuilder {
 
     public DefineRegionBuilder(Player p, Location loc1, Location loc2, String regionName, PlayerRegion leader, Set<PlayerRegion> leaders, boolean admin) {
+        this(p, loc1, loc2, regionName, leader, leaders, admin, null);
+    }
+
+    // Zelyff: guarded server-thread adapter; legacy callers retain their original path.
+    public DefineRegionBuilder(Player p, Location loc1, Location loc2, String regionName, PlayerRegion leader, Set<PlayerRegion> leaders, boolean admin, java.util.function.BooleanSupplier commitGuard) {
         if (!RedProtect.get().getConfigManager().isAllowedWorld(p)) {
             setError(p, RedProtect.get().getLanguageManager().get("regionbuilder.region.worldnotallowed"));
             return;
         }
 
+        if (commitGuard != null && (!Bukkit.isPrimaryThread() || !commitGuard.getAsBoolean())) return;
         if (loc1 == null || loc2 == null) {
             if (RedProtect.get().hooks.checkWe()) {
                 Location[] pos = WEHook.getWESelection(p);
@@ -106,7 +112,7 @@ public class DefineRegionBuilder extends RegionBuilder {
                 maxy = RedProtect.get().getConfigManager().configRoot().region_settings.claim.maxy;
         }
 
-        Region newRegion = new Region(regionName, new HashSet<>(), new HashSet<>(), leaders, new int[]{loc1.getBlockX(), loc1.getBlockX(), loc2.getBlockX(), loc2.getBlockX()}, new int[]{loc1.getBlockZ(), loc1.getBlockZ(), loc2.getBlockZ(), loc2.getBlockZ()}, miny, maxy, 0, p.getWorld().getName(), RedProtect.get().getUtil().dateNow(), RedProtect.get().getConfigManager().getDefFlagsValues(), wmsg, 0, null, true, true);
+        Region newRegion = new Region(regionName, new HashSet<>(), new HashSet<>(), leaders, new int[]{loc1.getBlockX(), loc1.getBlockX(), loc2.getBlockX(), loc2.getBlockX()}, new int[]{loc1.getBlockZ(), loc1.getBlockZ(), loc2.getBlockZ(), loc2.getBlockZ()}, miny, maxy, 0, p.getWorld().getName(), RedProtect.get().getUtil().dateNow(), RedProtect.get().getConfigManager().getDefFlagsValues(), wmsg, 0, null, true, true, commitGuard != null);
 
         Set<String> othersName = new HashSet<>();
         Region otherrg;
@@ -151,7 +157,8 @@ public class DefineRegionBuilder extends RegionBuilder {
             return;
         }
 
-        newRegion.setPrior(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
+        if (commitGuard == null) newRegion.setPrior(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
+        else newRegion.setDraftPriority(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
 
         int claimLimit = RedProtect.get().getPermissionHandler().getPlayerClaimLimit(p);
         int claimUsed = RedProtect.get().getRegionManager().getPlayerRegions(p.getUniqueId().toString(), p.getWorld().getName());
@@ -184,8 +191,10 @@ public class DefineRegionBuilder extends RegionBuilder {
             }
 
             if (peco >= reco) {
+                if (commitGuard == null) {
                 RedProtect.get().economy.withdrawPlayer(p, reco);
                 p.sendMessage(RedProtect.get().getLanguageManager().get("economy.region.claimed").replace("{price}", RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco + " " + RedProtect.get().getConfigManager().ecoRoot().economy_name));
+                }
             } else {
                 RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.notenought.money", new Replacer[]{new Replacer("{price}", RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco)});
                 return;
@@ -194,7 +203,9 @@ public class DefineRegionBuilder extends RegionBuilder {
 
         //fire event
         CreateRegionEvent event = new CreateRegionEvent(newRegion, p);
-        try {
+        if (commitGuard != null) {
+            Bukkit.getPluginManager().callEvent(event);
+        } else try {
             CreateRegionEvent finalEvent = event;
             event = Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
                 Bukkit.getPluginManager().callEvent(finalEvent);
@@ -208,6 +219,19 @@ public class DefineRegionBuilder extends RegionBuilder {
         }
 
         newRegion = event.getRegion();
+        if (newRegion == null) return;
+        if (commitGuard != null) {
+            if (!commitGuard.getAsBoolean()) return;
+            if (RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.enable && RedProtect.get().hooks.checkVault() && !p.hasPermission("redprotect.eco.bypass")) {
+                net.milkbowl.vault.economy.EconomyResponse response = null;
+                if (reco > 0) response = RedProtect.get().economy.withdrawPlayer(p, reco);
+                if (reco < 0) response = RedProtect.get().economy.depositPlayer(p, -reco);
+                if (response != null && !response.transactionSuccess()) {
+                    p.sendMessage("§cTransaksi claim gagal; wilayah tidak diubah."); return;
+                }
+            }
+        }
+
 
         p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "------------------------------------");
         if (!admin) {

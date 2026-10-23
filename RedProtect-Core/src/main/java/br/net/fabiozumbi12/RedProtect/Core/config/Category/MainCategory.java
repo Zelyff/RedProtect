@@ -36,6 +36,9 @@ import java.util.*;
 
 @ConfigSerializable
 public class MainCategory {
+    // Zelyff: optional adapters, all existing configuration sections retained.
+    @Setting(value = "zelyff-enhancements")
+    public EnhancementCategory enhancements = new EnhancementCategory();
     @Setting(value = "enable-addons", comment = "Enable addons on server start (and on plugin load). You can manually enable addons with \"/rp addon [name] [download/enable/disdable]\" command.")
     public boolean enable_addons = true;
     @Setting(value = "online-mode", comment = "Should fix players uuids on player login? (recommended if upgrading from old RP versions and in offline mode)")

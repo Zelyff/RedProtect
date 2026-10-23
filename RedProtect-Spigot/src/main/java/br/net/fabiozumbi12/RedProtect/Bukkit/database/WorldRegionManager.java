@@ -43,6 +43,11 @@ public interface WorldRegionManager {
 
     Set<Region> getRegionsNear(int px, int pz, int p1);
 
+    // Zelyff: bounded, read-only inspection of cached objects; no database query/write.
+    default java.util.List<Region> getCachedRegionsForInspection(int maximum) {
+        return java.util.Collections.emptyList();
+    }
+
     void add(Region p0);
 
     void remove(Region p0);

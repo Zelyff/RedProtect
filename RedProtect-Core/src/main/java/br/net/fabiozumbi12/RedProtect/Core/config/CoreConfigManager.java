@@ -154,21 +154,21 @@ public class CoreConfigManager {
             Lists are [object1, object2, ...]
             Strings containing the char & always need to be quoted""";
     protected ConfigurationNode ecoCfgRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> ecoLoader;
+    protected ConfigurationLoader<? extends ConfigurationNode> ecoLoader;
     protected EconomyCategory ecoRoot;
     protected ConfigurationNode headTextCfgRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> headTextLoader;
+    protected ConfigurationLoader<? extends ConfigurationNode> headTextLoader;
     protected HeadTexturesCategory headTextRoot;
     protected ConfigurationNode signCfgs;
-    protected ConfigurationLoader<CommentedConfigurationNode> signsLoader;
+    protected ConfigurationLoader<? extends ConfigurationNode> signsLoader;
     protected ConfigurationNode guiCfgRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> guiCfgLoader;
+    protected ConfigurationLoader<? extends ConfigurationNode> guiCfgLoader;
     protected FlagGuiCategory guiRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> gFlagsLoader;
+    protected ConfigurationLoader<? extends ConfigurationNode> gFlagsLoader;
     protected ConfigurationNode gflagsRoot;
     protected GlobalFlagsCategory globalFlagsRoot;
     protected ConfigurationNode configRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> cfgLoader;
+    protected ConfigurationLoader<? extends ConfigurationNode> cfgLoader;
     protected MainCategory root;
 
     protected CoreConfigManager(File pluginFolder) {

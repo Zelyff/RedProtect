@@ -168,7 +168,8 @@ public class PlayerListener implements Listener {
 
         if (itemInHand != null && !itemInHand.getType().equals(Material.AIR)) {
             String claimmode = RedProtect.get().getConfigManager().getWorldClaimType(p.getWorld().getName());
-            if (itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.adminWandID) && (p.hasPermission("redprotect.command.admin.wand") || (claimmode.equalsIgnoreCase("WAND") || claimmode.equalsIgnoreCase("BOTH")))) {
+            boolean enhancementTool = RedProtect.get().getEnhancements() != null && RedProtect.get().getEnhancements().tools().usesItem(itemInHand.getType());
+            if (!enhancementTool && itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.adminWandID) && (p.hasPermission("redprotect.command.admin.wand") || (claimmode.equalsIgnoreCase("WAND") || claimmode.equalsIgnoreCase("BOTH")))) {
 
                 if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) || event.getAction().equals(Action.RIGHT_CLICK_AIR)) {
                     if (!RedProtect.get().getUtil().canBuildNear(p, l)) {
@@ -210,7 +211,7 @@ public class PlayerListener implements Listener {
                 return;
             }
 
-            if (itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.infoWandID)) {
+            if (!enhancementTool && itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.infoWandID)) {
                 Region r = RedProtect.get().getRegionManager().getTopRegion(l);
                 if (r == null) {
                     RedProtect.get().getLanguageManager().sendMessage(p, "playerlistener.noregion.atblock");

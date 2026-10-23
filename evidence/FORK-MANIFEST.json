@@ -1,0 +1,23 @@
+{
+  "version": "8.1.4-zelyff.1-dev",
+  "date_wib": "2026-10-22",
+  "upstream_sha": "b097dfe00b18576256df55faf1e2e090e98b85a0",
+  "implementation_status": "SOURCE_IMPLEMENTED_DEVELOPMENT",
+  "changed_source_compilation": {
+    "result": "PASS",
+    "files": 23,
+    "method": "javac --release 16 against Paper API and published upstream reference JAR; not full reactor Maven build"
+  },
+  "unit_tests": {
+    "result": "PASS",
+    "count": 21,
+    "areas": [
+      "administrative YAML migration",
+      "bounded border geometry"
+    ]
+  },
+  "runtime_tests_run": false,
+  "production_accessed": false,
+  "native_serializer_sha256": "5e04d7dbf36f589068ed6bec847fdf6801cf8ab4faecbb5ca6fca1752c82b5f1",
+  "native_serializer_byte_identical": true
+}

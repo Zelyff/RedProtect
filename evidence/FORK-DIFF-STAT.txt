@@ -1,0 +1,23 @@
+ Addons/BuyRentRegion/pom.xml                       |  6 +-
+ Addons/KillerProjectiles/pom.xml                   |  6 +-
+ Addons/RedBackups/pom.xml                          |  6 +-
+ Addons/RegionChat/pom.xml                          |  6 +-
+ README.md                                          |  4 ++
+ RedProtect-Core/pom.xml                            | 17 +++++-
+ .../Core/config/Category/MainCategory.java         |  3 +
+ .../RedProtect/Core/config/CoreConfigManager.java  | 12 ++--
+ RedProtect-Spigot/pom.xml                          | 12 +++-
+ .../fabiozumbi12/RedProtect/Bukkit/RedProtect.java | 40 ++++++++-----
+ .../net/fabiozumbi12/RedProtect/Bukkit/Region.java | 22 +++++++-
+ .../Bukkit/actions/DefineRegionBuilder.java        | 30 +++++++++-
+ .../Bukkit/actions/RedefineRegionBuilder.java      | 32 +++++++++--
+ .../RedProtect/Bukkit/commands/CommandHandler.java |  3 +
+ .../RedProtect/Bukkit/config/ConfigManager.java    | 65 ++++++----------------
+ .../database/WorldFlatFileRegionManager.java       | 11 ++++
+ .../Bukkit/database/WorldMySQLRegionManager.java   | 11 ++++
+ .../Bukkit/database/WorldRegionManager.java        |  5 ++
+ .../Bukkit/listeners/PlayerListener.java           |  5 +-
+ .../RedProtect/Bukkit/region/RegionManager.java    |  8 +++
+ RedProtect-Spigot/src/main/resources/plugin.yml    |  4 +-
+ pom.xml                                            |  4 +-
+ 22 files changed, 211 insertions(+), 101 deletions(-)

@@ -1,0 +1,43 @@
+{
+  "name": "RedProtect — Zelyff Fork Blueprint",
+  "status": "DESIGN_ONLY",
+  "date": "2026-10-22",
+  "fork_author": "Zelyff",
+  "original_creator": "ikillforeyou",
+  "upstream_maintainer": "FabioZumbi12",
+  "upstream_repository": "https://github.com/FabioZumbi12/RedProtect",
+  "release_candidate_tag_observed": "v8.1.4",
+  "release_asset_observed": "RedProtect-8.1.4-b11-release.jar",
+  "master_api_version_observed": "8.2.0-SNAPSHOT",
+  "full_upstream_sha": null,
+  "upstream_checkout_in_workspace": false,
+  "baseline_build_verified": false,
+  "in_game_tests_run": false,
+  "source_checkout_blocker": "Container DNS/network failed; public HTML/raw plugin.yml/POM/README reviewed",
+  "source_reference_links": [
+    "https://github.com/FabioZumbi12/RedProtect",
+    "https://github.com/FabioZumbi12/RedProtect/releases/latest",
+    "https://raw.githubusercontent.com/FabioZumbi12/RedProtect/master/RedProtect-Spigot/src/main/resources/plugin.yml",
+    "https://github.com/FabioZumbi12/RedProtect/blob/master/RedProtect-Spigot/pom.xml",
+    "https://docs.griefprevention.com/permissions/",
+    "https://geysermc.org/wiki/floodgate/api/",
+    "https://geysermc.org/wiki/geyser/current-limitations/",
+    "https://jd.papermc.io/paper/1.21.10/org/bukkit/entity/Display.html"
+  ],
+  "required_gates": [
+    "G0 source/build",
+    "G1 YAML parity",
+    "G2 GP tools",
+    "G3 borders",
+    "G4 Forms",
+    "G5 integration",
+    "G6 release",
+    "G7 populated production migration + rollback"
+  ],
+  "documentation_version": "1.1",
+  "production_migration_gate": "G7_NO_GO_UNTIL_VERIFIED",
+  "operator_existing_claim_data": "in_use_about_one_month_no_copy_provided",
+  "production_data_accessed": false,
+  "schema_change_authorized": false,
+  "storage_format_change_authorized": false
+}

@@ -1,0 +1,25 @@
+# ILLUSTRATIVE NEW KEYS ONLY. NOT A REDPROTECT DROP-IN CONFIG.
+# Insert into the actual original config.yml in a location selected after auditing
+# all original .conf files, paths and default merging. Existing keys stay identical.
+# Naming is a *proposal*; don't ship without source/schema validation.
+zelyff-enhancements:
+  enabled: false # rollout safety flag; current RedProtect runs unchanged when false
+  tools:
+    enabled: false
+    claim-item: GOLDEN_SHOVEL
+    inspect-item: STICK
+    two-corner-claim: true
+    resize-by-corner: true
+    inspect-nearby-on-sneak: true
+    session-timeout-seconds: 90
+  border:
+    mode: PARTICLE # exactly PARTICLE, BLOCK, HYBRID
+    block:
+      corner-material: GLOWSTONE
+      edge-material: GOLD_BLOCK
+      glow:
+        enabled: false # on JAVA BLOCK/HYBRID only; enable after validation
+        color: '#FFFFFF'
+        corners-only: true
+        max-markers-per-viewer: 32 # proposed cap subject to benchmark
+      bedrock-fallback: BLOCK

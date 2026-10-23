@@ -349,6 +349,8 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (plugin.getEnhancements() != null && (args.length == 0 || !hasCommand(args[0]))
+                && plugin.getEnhancements().command(sender, args)) return true;
         if (args.length > 0 && hasCommand(args[0])) {
             CommandExecutor executor = this.getCommandSubCommand(args[0]);
             return executor.onCommand(sender, command, label, Arrays_copyOfRange(args, args.length));
@@ -893,6 +895,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
                 return tabCompleter.onTabComplete(sender, command, alias, Arrays_copyOfRange(args, args.length));
             } else {
                 SortedSet<String> tab = new TreeSet<>();
+                if (plugin.getEnhancements() != null) tab.addAll(plugin.getEnhancements().completions(sender, args.length == 0 ? "" : args[0]));
                 for (List<String> cmds : commandMap.keySet()) {
                     String key = cmds.get(0);
                     String cmdtrans = RedProtect.get().getLanguageManager().get("cmdmanager.translation." + key);

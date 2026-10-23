@@ -1,0 +1,19 @@
+[INFO] Scanning for projects...
+[ERROR] [ERROR] Some problems were encountered while processing the POMs:
+[ERROR] Unresolveable build extension: Plugin org.sonatype.central:central-publishing-maven-plugin:0.8.0 or one of its dependencies could not be resolved:
+	Failed to read artifact descriptor for org.sonatype.central:central-publishing-maven-plugin:jar:0.8.0
+ @ 
+ @ 
+[ERROR] The build could not read 1 project -> [Help 1]
+[ERROR]   
+[ERROR]   The project io.github.fabiozumbi12.RedProtect:RedProtect:8.1.3-SNAPSHOT (/workspace/scratch/23b39e7866ec/RedProtect-Zelyff/pom.xml) has 1 error
+[ERROR]     Unresolveable build extension: Plugin org.sonatype.central:central-publishing-maven-plugin:0.8.0 or one of its dependencies could not be resolved:
+[ERROR]     	Failed to read artifact descriptor for org.sonatype.central:central-publishing-maven-plugin:jar:0.8.0
+[ERROR]     -> [Help 2]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/ProjectBuildingException
+[ERROR] [Help 2] http://cwiki.apache.org/confluence/display/MAVEN/PluginManagerException

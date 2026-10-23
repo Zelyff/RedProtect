@@ -1,0 +1,32 @@
+{
+  "status": "TEMPLATE_ONLY_NOT_PRODUCTION_DATA",
+  "note": "Fill only during future implementation. Do NOT place hostnames, database passwords, API tokens or player PII in shared blueprint.",
+  "original": {
+    "version": null,
+    "jar_sha256": null,
+    "source_commit_if_known": null,
+    "config_paths_observed": [],
+    "storage_backend_verified": null,
+    "storage_schema_version_if_applicable": null,
+    "storage_read_paths_audited": false,
+    "storage_write_paths_audited": false,
+    "startup_auto_migrations_audited": false
+  },
+  "environment": {
+    "server_build": null,
+    "java_version": null,
+    "world_identifiers_redacted": [],
+    "dependent_plugin_versions": []
+  },
+  "checkpoints": {
+    "A_staging": {"created": false, "manifest_sha256": null, "restore_test_passed": false},
+    "B_production_cutover": {"created": false, "manifest_sha256": null, "restore_test_passed": false}
+  },
+  "parity": {
+    "region_canonical_state_verified": false,
+    "typed_yaml_conf_parity_verified": false,
+    "permission_flag_regression_verified": false,
+    "unexplained_storage_mutations": null
+  },
+  "production_go_nogo": "NO_GO_UNTIL_VERIFIED"
+}

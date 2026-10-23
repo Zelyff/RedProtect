@@ -1,0 +1,142 @@
+[
+  {
+    "file": "AGENTS.md",
+    "bytes": 5957,
+    "sha256": "b607ee08ca6dd09de47572de50e42c5c57d0320f66bfdedc888b26f729504428"
+  },
+  {
+    "file": "README.md",
+    "bytes": 6978,
+    "sha256": "b4841065bccac01de02971651d616baf3bb75415c89cc55a90a194fd5b962951"
+  },
+  {
+    "file": "data/BASELINE-MANIFEST.json",
+    "bytes": 1787,
+    "sha256": "c2d86880f40333f7f44232a9f9e978f346f019402c818b6fe2f5164558b7961c"
+  },
+  {
+    "file": "data/PRODUCTION-INVENTORY.template.json",
+    "bytes": 1165,
+    "sha256": "67becb2efa858f12a2ca9a4ed0b686f43d5d3df275c28ad7425b9461a9ef9ff2"
+  },
+  {
+    "file": "data/TRACEABILITY.csv",
+    "bytes": 1697,
+    "sha256": "e4a5e35d9582dabc702e89c5a7f2affb8c3ba1813b3ab839b4ee9522e27bc272"
+  },
+  {
+    "file": "design/ARCHITECTURE.md",
+    "bytes": 4762,
+    "sha256": "8d3d3ab38215c34f6fd0e02fb6c9ca18f59eb30942cc9213e302672a882f5cfe"
+  },
+  {
+    "file": "design/BEDROCK-FORMS.md",
+    "bytes": 3616,
+    "sha256": "1c7e012e0168301f32f64bd5f51d328c6509c1bc028520ebe2520732df14b29d"
+  },
+  {
+    "file": "design/BORDER-RENDERING.md",
+    "bytes": 5437,
+    "sha256": "bd67835c36e9e0195e200213cb96b3c8810bce41b1908078ae344d488695dc8d"
+  },
+  {
+    "file": "design/CLAIM-INTERACTION.md",
+    "bytes": 4858,
+    "sha256": "de0e2b1d28ef2095330713928ca64e78bfbb6327cc8115e5fbbc302ba80cdac6"
+  },
+  {
+    "file": "docs/CREDITS-LICENSE.md",
+    "bytes": 1787,
+    "sha256": "96b88d745af93823fe9dbd1ed435d19f6b5c6924217b71c66fae440dcc42ca32"
+  },
+  {
+    "file": "docs/REQUIREMENTS.md",
+    "bytes": 4493,
+    "sha256": "a0f614100c53548b15749ed3568eb4586f8f4e61faf656db86b5ee69b41fa557"
+  },
+  {
+    "file": "docs/UPSTREAM-RESEARCH.md",
+    "bytes": 5712,
+    "sha256": "b7c8578f46ead375a575e77339059cff8c8b688caf93da0cdc114329e2ba86f1"
+  },
+  {
+    "file": "engineering/BUILD-AND-RELEASE.md",
+    "bytes": 2911,
+    "sha256": "51e6134ed09279d002d04f8b70de31446bb2f44aa4b052c3819f0c84bb1bb5d6"
+  },
+  {
+    "file": "engineering/COMPATIBILITY.md",
+    "bytes": 4398,
+    "sha256": "f3ae38fad9f18391b1e3c8ceb8b05a8c4a7da04d02c28d7c26b3ab3260ff6b71"
+  },
+  {
+    "file": "engineering/PRODUCTION-MIGRATION-AND-ROLLBACK.md",
+    "bytes": 15241,
+    "sha256": "b7963063fb6dce9faadcce992762ee0c848e45ee66b215815f1e826821d3e1df"
+  },
+  {
+    "file": "engineering/YAML-MIGRATION.md",
+    "bytes": 8151,
+    "sha256": "49260d806ad57ec59331beed4bd5321fa6d138da188778bda5106dd962912ed0"
+  },
+  {
+    "file": "examples/BEDROCK-OPTIONAL.yml",
+    "bytes": 591,
+    "sha256": "a4b9800e9ddf69ac3ba0efe861a5a204f07307cd503bdd8baed5d3f42fd5a124"
+  },
+  {
+    "file": "examples/CONFIG-ADDITIONS.yml",
+    "bytes": 990,
+    "sha256": "f00743d956d7924434e53e71829cc749c51385e677271c80a7143ee746e26b8f"
+  },
+  {
+    "file": "project/CHANGELOG-PLANNED.md",
+    "bytes": 1604,
+    "sha256": "55029fb950e354cb20dfdf5acd2940eeb52417763952692eb3f1eebc672a2653"
+  },
+  {
+    "file": "project/DECISIONS.md",
+    "bytes": 3939,
+    "sha256": "e293c53b644e8134694fa73ad9457b59e9409083b05b759ad04009bafd246df5"
+  },
+  {
+    "file": "project/PLAN.md",
+    "bytes": 11394,
+    "sha256": "15e36e07be96282035b7ae5a39eb7c4dbe2cb44eae612ff4e4236face2df714c"
+  },
+  {
+    "file": "project/RISKS.md",
+    "bytes": 4125,
+    "sha256": "05a70f2fca515aa8df38e30ae62bd9985e9299bc6b73b69af5358c21851ea286"
+  },
+  {
+    "file": "qa/ACCEPTANCE.md",
+    "bytes": 4009,
+    "sha256": "26aaef7a3b50325ec8cb55332d9012ed19504756b53ddef267f56e1be0d757b6"
+  },
+  {
+    "file": "qa/TEST-PLAN.md",
+    "bytes": 8415,
+    "sha256": "288f1e4877a42a4cf2b64dc81916080be857b8d0e75f5f57e22dfebc66d422f0"
+  },
+  {
+    "file": "templates/AUDIT-REPORT.md",
+    "bytes": 1143,
+    "sha256": "e5a0e87347bb4861495dd46f7c1a87b943a78a9229655f71113636130677e6e8"
+  },
+  {
+    "file": "templates/IMPLEMENTATION-PROMPT.md",
+    "bytes": 4699,
+    "sha256": "a1a8b76c50e908797392669ef8ef0d7b3b62353b9fe0a9de905e092f933687a1"
+  },
+  {
+    "file": "templates/PR-TEMPLATE.md",
+    "bytes": 1325,
+    "sha256": "bba577c3e43b310d48978eb3f00eac8dbf40d1ddda6134bddf7b2fbfefa0d8b0"
+  },
+  {
+    "file": "templates/PRODUCTION-PREFLIGHT.md",
+    "bytes": 1933,
+    "sha256": "4b24123e8ffc3536c943917dfe83bf70d2d24ac97741b2b8b6678ee92ea5d1b0"
+  }
+]

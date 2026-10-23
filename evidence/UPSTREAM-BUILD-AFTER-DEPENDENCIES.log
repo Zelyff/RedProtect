@@ -1,0 +1,178 @@
+[INFO] Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for io.github.fabiozumbi12.RedProtect:RedProtect-Spigot:jar:8.1.3-SNAPSHOT
+[WARNING] 'dependencies.dependency.systemPath' for MassiveCore:MassiveCore:jar should not point at files within the project directory, ${project.basedir}/libs/MassiveCore.jar will be unresolvable by dependent projects @ line 135, column 25
+[WARNING] 'dependencies.dependency.systemPath' for Factions:Factions:jar should not point at files within the project directory, ${project.basedir}/libs/Factions.jar will be unresolvable by dependent projects @ line 142, column 25
+[WARNING] 'dependencies.dependency.systemPath' for BossBarAPI_v2.4.1:BossBarAPI_v2.4.1:jar should not point at files within the project directory, ${project.basedir}/libs/BossBarAPI_v2.4.1.jar will be unresolvable by dependent projects @ line 149, column 25
+[WARNING] 'dependencies.dependency.systemPath' for ActionBarAPI-1.5.4.jar:ActionBarAPI-1.5.4.jar:jar should not point at files within the project directory, ${project.basedir}/libs/ActionBarAPI-1.5.4.jar will be unresolvable by dependent projects @ line 156, column 25
+[WARNING] 'dependencies.dependency.systemPath' for dynmap-3:dynmap-3:jar should not point at files within the project directory, ${project.basedir}/libs/Dynmap-3.5-beta-3-spigot.jar will be unresolvable by dependent projects @ line 163, column 25
+[WARNING] 'dependencies.dependency.systemPath' for GriefPrevention:GriefPrevention:jar should not point at files within the project directory, ${project.basedir}/libs/GriefPrevention.jar will be unresolvable by dependent projects @ line 170, column 25
+[WARNING] 'dependencies.dependency.systemPath' for MyChunk:MyChunk:jar should not point at files within the project directory, ${project.basedir}/libs/MyChunk.jar will be unresolvable by dependent projects @ line 177, column 25
+[WARNING] 'dependencies.dependency.systemPath' for PvPManager:PvPManager:jar should not point at files within the project directory, ${project.basedir}/libs/PvPManager.jar will be unresolvable by dependent projects @ line 184, column 25
+[WARNING] 'dependencies.dependency.systemPath' for SkillAPI:SkillAPI:jar should not point at files within the project directory, ${project.basedir}/libs/SkillAPI.jar will be unresolvable by dependent projects @ line 191, column 25
+[WARNING] 'dependencies.dependency.systemPath' for InfernalMobs:InfernalMobs:jar should not point at files within the project directory, ${project.basedir}/libs/InfernalMobs-5.7.jar will be unresolvable by dependent projects @ line 198, column 25
+[WARNING] 'dependencies.dependency.systemPath' for MyPet310:MyPet310:jar should not point at files within the project directory, ${project.basedir}/libs/MyPet-3.10.jar will be unresolvable by dependent projects @ line 205, column 25
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] Inspecting build with total of 7 modules
+[INFO] Installing Central Publishing features
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] RedProtect                                                         [pom]
+[INFO] RedProtect-Core                                                    [jar]
+[INFO] RedProtect-Spigot                                                  [jar]
+[INFO] RedBackups                                                         [jar]
+[INFO] KillerProjectiles                                                  [jar]
+[INFO] RegionChat                                                         [jar]
+[INFO] BuyRentRegion                                                      [jar]
+[INFO] 
+[INFO] ------------< io.github.fabiozumbi12.RedProtect:RedProtect >------------
+[INFO] Building RedProtect 8.1.3-SNAPSHOT                                 [1/7]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- build-helper:1.10:parse-version (parse-version) @ RedProtect ---
+[INFO] 
+[INFO] --- templating:1.0.0:filter-sources (filter-src) @ RedProtect ---
+[INFO] Skipping a POM project type. Change a `skipPoms` to false to run anyway.
+[INFO] 
+[INFO] --- source:3.2.0:jar-no-fork (attach-sources) @ RedProtect ---
+[INFO] 
+[INFO] --- javadoc:2.9.1:jar (attach-javadocs) @ RedProtect ---
+[INFO] Skipping javadoc generation
+[INFO] 
+[INFO] --- gpg:1.6:sign (spigot-plugins) @ RedProtect ---
+[INFO] 
+[INFO] ---------< io.github.fabiozumbi12.RedProtect:RedProtect-Core >----------
+[INFO] Building RedProtect-Core 8.1.3-SNAPSHOT                            [2/7]
+[INFO]   from RedProtect-Core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- build-helper:1.10:parse-version (parse-version) @ RedProtect-Core ---
+[INFO] 
+[INFO] --- templating:1.0.0:filter-sources (filter-src) @ RedProtect-Core ---
+[INFO] Request to add '/workspace/scratch/23b39e7866ec/RedProtect-Zelyff/RedProtect-Core/src/main/java-templates' folder. Not added since it does not exist.
+[INFO] 
+[INFO] --- resources:2.5:resources (default-resources) @ RedProtect-Core ---
+[debug] execute contextualize
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 17 resources to .
+[INFO] 
+[INFO] --- compiler:3.8.1:compile (default-compile) @ RedProtect-Core ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:2.5:testResources (default-testResources) @ RedProtect-Core ---
+[debug] execute contextualize
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /workspace/scratch/23b39e7866ec/RedProtect-Zelyff/RedProtect-Core/src/test/resources
+[INFO] 
+[INFO] --- compiler:3.8.1:testCompile (default-testCompile) @ RedProtect-Core ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ RedProtect-Core ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --- jar:3.4.1:jar (default-jar) @ RedProtect-Core ---
+[INFO] Building jar: /workspace/scratch/23b39e7866ec/RedProtect-Zelyff/RedProtect-Core/target/DONT-DOWNLOAD-Core-Reference.jar
+[INFO] 
+[INFO] --- shade:3.5.1:shade (default) @ RedProtect-Core ---
+[INFO] Including org.spongepowered:configurate-yaml:jar:3.6.1 in the shaded jar.
+[INFO] Including org.spongepowered:configurate-hocon:jar:3.6.1 in the shaded jar.
+[INFO] Including org.spongepowered:configurate-core:jar:3.6.1 in the shaded jar.
+[INFO] Including com.typesafe:config:jar:1.3.1 in the shaded jar.
+[INFO] Excluding org.yaml:snakeyaml:jar:1.18 from the shaded jar.
+[INFO] Excluding com.google.guava:guava:jar:21.0 from the shaded jar.
+[INFO] Excluding org.checkerframework:checker-qual:jar:2.4.0 from the shaded jar.
+[WARNING] DONT-DOWNLOAD-Core-Reference.jar, config-1.3.1.jar, configurate-core-3.6.1.jar, configurate-hocon-3.6.1.jar, configurate-yaml-3.6.1.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/MANIFEST.MF
+[WARNING] maven-shade-plugin has detected that some files are
+[WARNING] present in two or more JARs. When this happens, only one
+[WARNING] single version of the file is copied to the uber jar.
+[WARNING] Usually this is not harmful and you can skip these warnings,
+[WARNING] otherwise try to manually exclude artifacts based on
+[WARNING] mvn dependency:tree -Ddetail=true and the above output.
+[WARNING] See https://maven.apache.org/plugins/maven-shade-plugin/
+[INFO] Replacing original artifact with shaded artifact.
+[INFO] Replacing /workspace/scratch/23b39e7866ec/RedProtect-Zelyff/RedProtect-Core/target/DONT-DOWNLOAD-Core-Reference.jar with /workspace/scratch/23b39e7866ec/RedProtect-Zelyff/RedProtect-Core/target/RedProtect-Core-8.1.3-SNAPSHOT-shaded.jar
+[INFO] 
+[INFO] --- source:3.2.0:jar-no-fork (attach-sources) @ RedProtect-Core ---
+[INFO] 
+[INFO] --- javadoc:2.9.1:jar (attach-javadocs) @ RedProtect-Core ---
+[INFO] Skipping javadoc generation
+[INFO] 
+[INFO] --- gpg:1.6:sign (spigot-plugins) @ RedProtect-Core ---
+[INFO] 
+[INFO] --------< io.github.fabiozumbi12.RedProtect:RedProtect-Spigot >---------
+[INFO] Building RedProtect-Spigot 8.1.3-SNAPSHOT                          [3/7]
+[INFO]   from RedProtect-Spigot/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for RedProtect 8.1.3-SNAPSHOT:
+[INFO] 
+[INFO] RedProtect ......................................... SUCCESS [  1.673 s]
+[INFO] RedProtect-Core .................................... SUCCESS [  2.529 s]
+[INFO] RedProtect-Spigot .................................. FAILURE [  0.991 s]
+[INFO] RedBackups ......................................... SKIPPED
+[INFO] KillerProjectiles .................................. SKIPPED
+[INFO] RegionChat ......................................... SKIPPED
+[INFO] BuyRentRegion ...................................... SKIPPED
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  5.949 s
+[INFO] Finished at: 2026-10-22T12:31:55+02:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project RedProtect-Spigot: Could not resolve dependencies for project io.github.fabiozumbi12.RedProtect:RedProtect-Spigot:jar:8.1.3-SNAPSHOT
+[ERROR] dependency: net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 (provided)
+[ERROR] 	Cannot access maven-snapshots (https://central.sonatype.com/repository/maven-snapshots/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access sk89q-snapshots (https://maven.enginehub.org/repo/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access EssentialsX (https://ci.ender.zone/plugin/repository/everything/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access jitpack.io (https://jitpack.io) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access dynmap (https://repo.mikeprimm.com/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access paper-current (https://repo.papermc.io/repository/maven-public/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access Translation-API (https://raw.githubusercontent.com/FabioZumbi12/TranslationAPI/mvn-repo/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access minecraft-repo (https://libraries.minecraft.net/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access placeholderapi (https://repo.extendedclip.com/content/repositories/placeholderapi/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access mcmmo-repo (https://nexus.neetgames.com/repository/maven-public) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access roinujnosde-repo (https://repo.roinujnosde.me/releases/) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] 	Cannot access central (https://repo.maven.apache.org/maven2) in offline mode and the artifact net.sacredlabyrinth.phaed.simpleclans:SimpleClans:jar:2.19.2 has not been downloaded from it before.
+[ERROR] dependency: com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 (provided)
+[ERROR] 	Cannot access maven-snapshots (https://central.sonatype.com/repository/maven-snapshots/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access sk89q-snapshots (https://maven.enginehub.org/repo/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access EssentialsX (https://ci.ender.zone/plugin/repository/everything/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access jitpack.io (https://jitpack.io) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access dynmap (https://repo.mikeprimm.com/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access paper-current (https://repo.papermc.io/repository/maven-public/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access Translation-API (https://raw.githubusercontent.com/FabioZumbi12/TranslationAPI/mvn-repo/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access minecraft-repo (https://libraries.minecraft.net/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access placeholderapi (https://repo.extendedclip.com/content/repositories/placeholderapi/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access mcmmo-repo (https://nexus.neetgames.com/repository/maven-public) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access roinujnosde-repo (https://repo.roinujnosde.me/releases/) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] 	Cannot access central (https://repo.maven.apache.org/maven2) in offline mode and the artifact com.gmail.nossr50.mcMMO:mcMMO:jar:2.1.206 has not been downloaded from it before.
+[ERROR] dependency: me.clip:placeholderapi:jar:2.11.6 (provided)
+[ERROR] 	Cannot access maven-snapshots (https://central.sonatype.com/repository/maven-snapshots/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access sk89q-snapshots (https://maven.enginehub.org/repo/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access EssentialsX (https://ci.ender.zone/plugin/repository/everything/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access jitpack.io (https://jitpack.io) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access dynmap (https://repo.mikeprimm.com/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access paper-current (https://repo.papermc.io/repository/maven-public/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access Translation-API (https://raw.githubusercontent.com/FabioZumbi12/TranslationAPI/mvn-repo/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access minecraft-repo (https://libraries.minecraft.net/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access placeholderapi (https://repo.extendedclip.com/content/repositories/placeholderapi/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access mcmmo-repo (https://nexus.neetgames.com/repository/maven-public) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access roinujnosde-repo (https://repo.roinujnosde.me/releases/) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] 	Cannot access central (https://repo.maven.apache.org/maven2) in offline mode and the artifact me.clip:placeholderapi:jar:2.11.6 has not been downloaded from it before.
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :RedProtect-Spigot

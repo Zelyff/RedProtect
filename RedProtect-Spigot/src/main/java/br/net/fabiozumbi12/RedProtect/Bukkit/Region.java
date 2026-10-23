@@ -50,6 +50,8 @@ public class Region extends CoreRegion {
 
     private final String dynmapSet = RedProtect.get().getConfigManager().configRoot().hooks.dynmap.marks_groupname;
     private int particleID = 0;
+    // Zelyff: transient preparation state; never part of the native storage format.
+    private boolean draft = false;
 
     /**
      * Represents the region created by player.
@@ -125,8 +127,24 @@ public class Region extends CoreRegion {
      * @param canPurge  Can be purged?
      */
     public Region(String name, Set<PlayerRegion> admins, Set<PlayerRegion> members, Set<PlayerRegion> leaders, int[] x, int[] z, int miny, int maxy, int prior, String worldName, String date, Map<String, Object> flags, String welcome, double value, Location tppoint, boolean candel, boolean canPurge) {
+        this(name, admins, members, leaders, x, z, miny, maxy, prior, worldName, date, flags, welcome, value, tppoint, candel, canPurge, false);
+    }
+
+    public Region(String name, Set<PlayerRegion> admins, Set<PlayerRegion> members, Set<PlayerRegion> leaders, int[] x, int[] z, int miny, int maxy, int prior, String worldName, String date, Map<String, Object> flags, String welcome, double value, Location tppoint, boolean candel, boolean canPurge, boolean draft) {
         super(name, admins, members, leaders, x, z, miny, maxy, prior, worldName, date, flags, welcome, value, tppoint == null ? null : new int[]{tppoint.getBlockX(), tppoint.getBlockY(), tppoint.getBlockZ()}, tppoint == null ? null : new float[]{tppoint.getPitch(), tppoint.getYaw()}, candel, canPurge);
-        checkParticle();
+        this.draft = draft;
+        if (!draft) checkParticle();
+    }
+
+    public void setDraftPriority(int priority) {
+        if (!draft) throw new IllegalStateException("Use the native priority setter on registered regions");
+        this.prior = priority;
+    }
+
+    public boolean isDraft() { return draft; }
+
+    public void activateDraft() {
+        if (draft) { draft = false; checkParticle(); }
     }
 
     /**
@@ -143,6 +161,7 @@ public class Region extends CoreRegion {
     }
 
     private void checkParticle() {
+        if (draft) return;
         Bukkit.getScheduler().runTaskLater(RedProtect.get(), () -> {
             if (this.flags.containsKey("particles")) {
                 if (particleID <= 0) {
@@ -204,6 +223,7 @@ public class Region extends CoreRegion {
     }
 
     public void updateSigns(String fname) {
+        if (draft) return;
         if (!RedProtect.get().getConfigManager().configRoot().region_settings.enable_flag_sign) {
             return;
         }

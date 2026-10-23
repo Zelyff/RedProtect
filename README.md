@@ -1,3 +1,7 @@
+> **RedProtect — Zelyff Fork (development)**  
+> Golden shovel/stick, tiga mode border, konfigurasi YAML, dan Forms Bedrock opsional.  
+> Mulai dari [panduan penggunaan](MULAI-DI-SINI.md), [status implementasi](docs/zelyff/IMPLEMENTATION-STATUS.md), dan [panduan fork/push](docs/zelyff/PANDUAN-GITHUB.md). Source upstream dan kredit aslinya dipertahankan.
+
 ![Logo](https://media.forgecdn.net/attachments/123/815/red-protect-plus1.png)
 
 [![Build Status](https://github.com/FabioZumbi12/RedProtect/actions/workflows/build-on-tag.yml/badge.svg)](https://github.com/FabioZumbi12/RedProtect/releases)

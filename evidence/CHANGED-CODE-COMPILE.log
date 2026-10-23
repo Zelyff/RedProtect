@@ -1,0 +1,25 @@
+RedProtect-Zelyff/RedProtect-Spigot/src/main/java/br/net/fabiozumbi12/RedProtect/Bukkit/commands/CommandHandler.java:142: warning: [unchecked] unchecked cast
+                T[] copy = (T[]) Array.newInstance(original.getClass().getComponentType(), length);
+                                                  ^
+  required: T[]
+  found:    Object
+  where T is a type-variable:
+    T extends Object declared in method <T>Arrays_copyOfRange(T[],int)
+RedProtect-Zelyff/RedProtect-Spigot/src/main/java/br/net/fabiozumbi12/RedProtect/Bukkit/commands/CommandHandler.java:677: warning: [removal] getPluginLoader() in JavaPlugin has been deprecated and marked for removal
+                                    addonPl = RedProtect.get().getPluginLoader().loadPlugin(folderFilename);
+                                                              ^
+RedProtect-Zelyff/RedProtect-Spigot/src/main/java/br/net/fabiozumbi12/RedProtect/Bukkit/commands/CommandHandler.java:678: warning: [removal] getPluginLoader() in JavaPlugin has been deprecated and marked for removal
+                                    RedProtect.get().getPluginLoader().enablePlugin(addonPl);
+                                                    ^
+RedProtect-Zelyff/RedProtect-Spigot/src/main/java/br/net/fabiozumbi12/RedProtect/Bukkit/config/ConfigManager.java:193: warning: [removal] getName() in Enchantment has been deprecated and marked for removal
+                    if (!ecoRoot.enchantments.values.containsKey(ench.getName())) {
+                                                                     ^
+RedProtect-Zelyff/RedProtect-Spigot/src/main/java/br/net/fabiozumbi12/RedProtect/Bukkit/config/ConfigManager.java:194: warning: [removal] getName() in Enchantment has been deprecated and marked for removal
+                        ecoRoot.enchantments.values.put(ench.getName(), 10L);
+                                                            ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+5 warnings
+
+source_files=23
+exit=0

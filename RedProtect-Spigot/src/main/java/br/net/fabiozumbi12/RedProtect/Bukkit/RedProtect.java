@@ -27,6 +27,8 @@
 package br.net.fabiozumbi12.RedProtect.Bukkit;
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.API.RedProtectAPI;
+import br.net.fabiozumbi12.RedProtect.Bukkit.enhancements.Enhancements;
+import br.net.fabiozumbi12.RedProtect.Bukkit.enhancements.EnhancedRedProtectUtil;
 import br.net.fabiozumbi12.RedProtect.Bukkit.config.LangGuiManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.config.LangManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.commands.CommandHandler;
@@ -70,7 +72,7 @@ public class RedProtect extends JavaPlugin {
     public Permission permission;
     public LangGuiManager guiLang;
     protected CommandHandler cmdHandler;
-    private RedProtectUtil redProtectUtil = new RedProtectUtil(this);
+    private RedProtectUtil redProtectUtil = new EnhancedRedProtectUtil(this);
     private RedProtectAPI redProtectAPI;
     private int autoSaveID;
     private VersionHelper rpvHelper;
@@ -81,6 +83,9 @@ public class RedProtect extends JavaPlugin {
     private LangManager lang;
     private ConfigManager config;
     private BlockConfig blockConfig;
+    private Enhancements enhancements;
+
+    public Enhancements getEnhancements() { return enhancements; }
 
     public static RedProtect get() {
         return plugin;
@@ -180,26 +185,28 @@ public class RedProtect extends JavaPlugin {
     }
 
     public void reloadConfigs() {
-        cmdHandler.unregisterAll();
-
-        try {
-            config = new ConfigManager();
-        } catch (ObjectMappingException e) {
-            CoreUtil.printJarVersion();
-            e.printStackTrace();
+        // Zelyff: validate a replacement before retiring the working configuration.
+        final ConfigManager replacement;
+        try { replacement = new ConfigManager(); }
+        catch (ObjectMappingException | RuntimeException failure) {
+            logger.severe("Configuration reload aborted; previous settings remain active.");
+            failure.printStackTrace();
+            return;
         }
-
+        cmdHandler.unregisterAll();
+        if (enhancements != null) { enhancements.close(); enhancements = null; }
+        config = replacement;
         logger.info("Loading language files...");
         lang = new LangManager();
         guiLang = new LangGuiManager();
         blockConfig = new BlockConfig();
-
         logger.info("Re-registering commands...");
         cmdHandler = new CommandHandler(this);
+        enhancements = new Enhancements(this);
     }
 
     private void startLoad() throws Exception {
-        redProtectUtil = new RedProtectUtil(this);
+        redProtectUtil = new EnhancedRedProtectUtil(this);
         config = new ConfigManager();
         lang = new LangManager();
         blockConfig = new BlockConfig();
@@ -281,6 +288,9 @@ public class RedProtect extends JavaPlugin {
         if (config.configRoot().server_protection.modsPermissionsEnable)
             modListener = new ModListener(this);
 
+        // Zelyff optional UI/input/render adapters; native region authority is already loaded.
+        enhancements = new Enhancements(this);
+
         // Metrics
         try {
             Metrics metrics = new Metrics(this);
@@ -293,16 +303,16 @@ public class RedProtect extends JavaPlugin {
     }
 
     private void shutDown() {
+        if (enhancements != null) { enhancements.close(); enhancements = null; }
         // Unload messages listener
         if (modListener != null)
             modListener.unload();
 
         // Unregister commands
-        cmdHandler.unregisterAll();
+        if (cmdHandler != null) cmdHandler.unregisterAll();
 
         // Save and unload all regions
-        rm.saveAll(true);
-        rm.unloadAll();
+        if (rm != null) { rm.saveAll(true); rm.unloadAll(); }
 
         // Cancel tasks from bukkit scheduler and save logs
         Bukkit.getScheduler().cancelTasks(this);

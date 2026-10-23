@@ -30,6 +30,7 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.MobTextures;
 import br.net.fabiozumbi12.RedProtect.Core.config.Category.*;
 import br.net.fabiozumbi12.RedProtect.Core.config.CoreConfigManager;
+import br.net.fabiozumbi12.RedProtect.Core.config.AdministrativeYaml;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.LogLevel;
 import ninja.leaping.configurate.ConfigurationNode;
@@ -59,17 +60,13 @@ public class ConfigManager extends CoreConfigManager {
 
         try {
 
-            /*--------------------- config.yml ---------------------------*/
-            cfgLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "config.conf")).build();
-
-            if (new File(RedProtect.get().getDataFolder(), "config.yml").exists()) {
-                File defConfig = new File(RedProtect.get().getDataFolder(), "config.yml");
-                ConfigurationLoader<ConfigurationNode> cfgLoader = YAMLConfigurationLoader.builder().setFile(defConfig).build();
-                configRoot = cfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerCfg));
-                defConfig.renameTo(new File(RedProtect.get().getDataFolder(), "config_BKP.yml"));
-            } else {
-                configRoot = cfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerCfg));
-            }
+            // Zelyff: stage only five administrative files; player/region state stays native.
+            File configFolder = RedProtect.get().getDataFolder();
+            if (!new File(configFolder, "economy.conf").exists() && !new File(configFolder, "economy.yml").exists())
+                RedProtect.get().saveResource("economy.conf", false);
+            AdministrativeYaml.prepare(configFolder.toPath());
+            cfgLoader = AdministrativeYaml.loader(configFolder, "config");
+            configRoot = cfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerCfg));
             this.root = configRoot.getValue(of(MainCategory.class), new MainCategory(Bukkit.getOnlineMode()));
 
             if (!configRoot.getNode("region-settings", "border", "material").isVirtual()) {
@@ -143,33 +140,13 @@ public class ConfigManager extends CoreConfigManager {
             }
 
             /*--------------------- end config.yml ---------------------------*/
-            gFlagsLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "globalflags.conf")).build();
-
-            if (new File(RedProtect.get().getDataFolder(), "globalflags.yml").exists()) {
-                File gFlagsConfig = new File(RedProtect.get().getDataFolder(), "globalflags.yml");
-                ConfigurationLoader<ConfigurationNode> gFlagsLoader = YAMLConfigurationLoader.builder().setFile(gFlagsConfig).build();
-                gflagsRoot = gFlagsLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGf));
-                gFlagsConfig.renameTo(new File(RedProtect.get().getDataFolder(), "globalflags_BKP.yml"));
-            } else {
-                gflagsRoot = gFlagsLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGf));
-            }
+            gFlagsLoader = AdministrativeYaml.loader(configFolder, "globalflags");
+            gflagsRoot = gFlagsLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGf));
             this.globalFlagsRoot = gflagsRoot.getValue(of(GlobalFlagsCategory.class), new GlobalFlagsCategory());
 
             /*--------------------- guiconfig.yml ---------------------------*/
-            String guiFileName = "guiconfig" + configRoot().language + ".conf";
-            if (new File(RedProtect.get().getDataFolder(), guiFileName).exists()) {
-                new File(RedProtect.get().getDataFolder(), guiFileName).renameTo(new File(RedProtect.get().getDataFolder(), "guiconfig.conf"));
-            }
-            guiCfgLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "guiconfig.conf")).build();
-
-            if (new File(RedProtect.get().getDataFolder(), "guiconfig.yml").exists()) {
-                File guiOldCfg = new File(RedProtect.get().getDataFolder(), "guiconfig.yml");
-                ConfigurationLoader<ConfigurationNode> guiLoader = YAMLConfigurationLoader.builder().setFile(guiOldCfg).build();
-                guiCfgRoot = guiLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGui));
-                guiOldCfg.renameTo(new File(RedProtect.get().getDataFolder(), "guiconfig_BKP.yml"));
-            } else {
-                guiCfgRoot = guiCfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGui));
-            }
+            guiCfgLoader = AdministrativeYaml.loader(configFolder, "guiconfig");
+            guiCfgRoot = guiCfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGui));
             this.guiRoot = guiCfgRoot.getValue(of(FlagGuiCategory.class), new FlagGuiCategory());
 
             // Import old gui translations
@@ -200,18 +177,8 @@ public class ConfigManager extends CoreConfigManager {
             }
 
             /*------------------- Economy File -------------------*/
-            ecoLoader = HoconConfigurationLoader.builder().setPath(new File(RedProtect.get().getDataFolder(), "economy.conf").toPath()).build();
-            if (new File(RedProtect.get().getDataFolder(), "economy.yml").exists()) {
-                File ecoConfig = new File(RedProtect.get().getDataFolder(), "economy.yml");
-                ConfigurationLoader<ConfigurationNode> ecoLoader = YAMLConfigurationLoader.builder().setPath(ecoConfig.toPath()).build();
-                ecoCfgRoot = ecoLoader.load();
-                ecoConfig.renameTo(new File(RedProtect.get().getDataFolder(), "economy_BKP.yml"));
-            } else {
-                if (!new File(RedProtect.get().getDataFolder(), "economy.conf").exists()) {
-                    RedProtect.get().saveResource("economy.conf", false);
-                }
-                ecoCfgRoot = ecoLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerEco));
-            }
+            ecoLoader = AdministrativeYaml.loader(configFolder, "economy");
+            ecoCfgRoot = ecoLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerEco));
             this.ecoRoot = ecoCfgRoot.getValue(of(EconomyCategory.class), new EconomyCategory());
 
             if (ecoRoot.items.values.size() < Material.values().length) {
@@ -230,7 +197,7 @@ public class ConfigManager extends CoreConfigManager {
             }
 
             /* ----------------- Head textures config file -----------------*/
-            headTextLoader = HoconConfigurationLoader.builder().setPath(new File(RedProtect.get().getDataFolder(), "textures.conf").toPath()).build();
+            headTextLoader = AdministrativeYaml.loader(configFolder, "textures");
             headTextCfgRoot = headTextLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerHeadtext));
             this.headTextRoot = headTextCfgRoot.getValue(of(HeadTexturesCategory.class), new HeadTexturesCategory());
 
@@ -252,7 +219,7 @@ public class ConfigManager extends CoreConfigManager {
             }
         } catch (IOException e1) {
             RedProtect.get().logger.severe("The default configuration could not be loaded or created!");
-            e1.printStackTrace();
+            throw new IllegalStateException("Administrative YAML failed; original configuration and storage preserved", e1);
         }
 
         RedProtect.get().logger.info("Server version: " + Bukkit.getServer().getBukkitVersion());

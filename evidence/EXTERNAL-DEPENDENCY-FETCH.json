@@ -1,0 +1,38 @@
+[
+  {
+    "coordinate": "net.sacredlabyrinth.phaed.simpleclans:SimpleClans:2.19.2",
+    "status": "UNRESOLVED",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "coordinate": "com.gmail.nossr50.mcMMO:mcMMO:2.1.206",
+    "status": "UNRESOLVED",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "coordinate": "br.net.fabiozumbi12:TranslationAPI:1.2",
+    "status": "FETCHED",
+    "repository": "Translation-API",
+    "resolved_version": "1.2",
+    "jar_sha256": "7b98b19ae7551e2ab5d0924ea0d36650591395b2f0d8837cb4acd49c78f1e75b"
+  },
+  {
+    "coordinate": "me.clip:placeholderapi:2.11.6",
+    "status": "UNRESOLVED",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "coordinate": "org.bukkit:bukkit:1.13.1-R0.1-SNAPSHOT",
+    "status": "FETCHED",
+    "repository": "paper-current",
+    "resolved_version": "1.13.1-R0.1-20181022.190036-99",
+    "jar_sha256": "11602864de946f2d65b13fa54f0eb943fc5319c7f21cdc08fb21765707fd2299"
+  },
+  {
+    "coordinate": "io.github.fabiozumbi12.UltimateChat:UltimateFancy:1.9.4-SNAPSHOT",
+    "status": "FETCHED",
+    "repository": "paper-current",
+    "resolved_version": "1.9.4-20251205.041004-2",
+    "jar_sha256": "9cc4d39d2aacbd12ac1d78c1e3162b312cd9b703847a0e7f4ddb8697f7a21717"
+  }
+]

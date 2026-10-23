@@ -1,0 +1,16 @@
+{
+  "date_wib": "2026-10-22",
+  "upstream_repository": "https://github.com/FabioZumbi12/RedProtect",
+  "tag": "v8.1.4",
+  "commit_sha": "b097dfe00b18576256df55faf1e2e090e98b85a0",
+  "branch_local": "zelyff-fork",
+  "original_project_version": "8.1.3-SNAPSHOT",
+  "release_asset": "RedProtect-8.1.4-b11-release.jar",
+  "release_asset_expected_sha256": "ef143cafca8c050154aa8a0d68f821a00d32cf6152f898089583a81534a16bd0",
+  "release_asset_actual_sha256": "ef143cafca8c050154aa8a0d68f821a00d32cf6152f898089583a81534a16bd0",
+  "build_change": "Paper Maven repository URL only",
+  "feature_code_implemented": false,
+  "g0_status": "BLOCKED",
+  "runtime_tests_run": false,
+  "production_accessed": false
+}

@@ -2,9 +2,9 @@ name: RedProtect
 main: br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect
 version: ${project.version}
 api-version: 1.13
-author: FabioZumbi12
+authors: [ FabioZumbi12, ikillforeyou, Zelyff ]
 description: Allows players to define fields to protect their houses.
-softdepend: [ Slimefun, TranslationAPI, InfernalMobs, WorldEdit, WorldGuard, BossbarAPI, MyChunk, MyPet, Multiverse-Core, mcMMO, SkillAPI, PvPManager, Essentials, dynmap, SimpleClans, Factions, PlaceholderAPI, GriefPrevention ]
+softdepend: [ floodgate, Slimefun, TranslationAPI, InfernalMobs, WorldEdit, WorldGuard, BossbarAPI, MyChunk, MyPet, Multiverse-Core, mcMMO, SkillAPI, PvPManager, Essentials, dynmap, SimpleClans, Factions, PlaceholderAPI, GriefPrevention ]
 commands:
   RedProtect:
     description: "Main command for RedProtect."

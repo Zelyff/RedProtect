@@ -255,6 +255,11 @@ public class RegionManager {
         return regionManagers.get(player.getWorld().getName()).getRegionsNear(player.getLocation().getBlockX(), player.getLocation().getBlockZ(), i);
     }
 
+    public java.util.List<Region> getCachedRegionsForInspection(String world, int maximum) {
+        WorldRegionManager manager = regionManagers.get(world);
+        return manager == null ? java.util.Collections.emptyList() : manager.getCachedRegionsForInspection(maximum);
+    }
+
     public Set<Region> getRegions(String player, String w) {
         if (regionManagers.containsKey(w))
             return this.regionManagers.get(w).getLeaderRegions(player);
@@ -481,16 +486,19 @@ public class RegionManager {
     }
 
     public void updateLiveRegion(Region r, String columm, Object value) {
+        if (r.isDraft()) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
         rm.updateLiveRegion(r.getName(), columm, value);
     }
 
     public void updateLiveFlags(Region r, String flag, String value) {
+        if (r.isDraft()) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
         rm.updateLiveFlags(r.getName(), flag, value);
     }
 
     public void removeLiveFlags(Region r, String flag) {
+        if (r.isDraft()) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
         rm.removeLiveFlags(r.getName(), flag);
     }

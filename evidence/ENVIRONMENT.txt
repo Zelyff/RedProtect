@@ -1,0 +1,10 @@
+Apache Maven 3.9.9 (8e8579a9e76f7d015ee5ec7bfcdc97d260186937)
+Maven home: /workspace/scratch/23b39e7866ec/tools/apache-maven-3.9.9
+Java version: 17.0.20, vendor: Ubuntu, runtime: /usr/lib/jvm/java-17-openjdk-amd64
+Default locale: en, platform encoding: UTF-8
+OS name: "linux", version: "6.18.55", arch: "amd64", family: "unix"
+Apache Maven 3.9.9 (8e8579a9e76f7d015ee5ec7bfcdc97d260186937)
+Maven home: /workspace/scratch/23b39e7866ec/tools/apache-maven-3.9.9
+Java version: 21.0.12, vendor: Ubuntu, runtime: /workspace/scratch/23b39e7866ec/tools/jdk21-clean/usr/lib/jvm/java-21-openjdk-amd64
+Default locale: en, platform encoding: UTF-8
+OS name: "linux", version: "6.18.55", arch: "amd64", family: "unix"

@@ -41,6 +41,17 @@ import java.util.stream.Collectors;
 
 public class WorldMySQLRegionManager implements WorldRegionManager {
 
+    @Override
+    public java.util.List<Region> getCachedRegionsForInspection(int maximum) {
+        java.util.List<Region> result = new java.util.ArrayList<>();
+        int limit = Math.max(1, Math.min(maximum, 4096));
+        for (Region region : regions.values()) {
+            if (result.size() >= limit) break;
+            result.add(region);
+        }
+        return result;
+    }
+
     private final String url = "jdbc:mysql://" + RedProtect.get().getConfigManager().configRoot().mysql.host + "/";
     private final String reconnect = "?autoReconnect=true";
     private final String dbname = RedProtect.get().getConfigManager().configRoot().mysql.db_name;
