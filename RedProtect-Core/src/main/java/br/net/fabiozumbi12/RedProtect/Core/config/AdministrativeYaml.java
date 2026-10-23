@@ -1,6 +1,8 @@
 /* Zelyff fork additions, GPL-3.0. Only enumerated administrative configs. */
 package br.net.fabiozumbi12.RedProtect.Core.config;
 
+import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigFactory;
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -161,7 +163,19 @@ public final class AdministrativeYaml {
       throw new IOException(
           path.getFileName()
               + ": HOCON include/substitution needs explicit migration; no file changed");
-    return HoconConfigurationLoader.builder().setPath(path).build().load();
+    ConfigurationNode node = HoconConfigurationLoader.builder().setPath(path).build().load();
+    try {
+      // Configurate 3.6.1's HOCON visitor loses nested empty lists while building
+      // nodes incrementally. Setting the complete typed tree preserves [] and
+      // keeps the header/options obtained by the native loader above.
+      Object values = ConfigFactory.parseString(text).root().unwrapped();
+      node.setValue(values);
+      if (!Objects.equals(values, node.getValue()))
+        throw new IOException(path.getFileName() + ": unsupported HOCON value; original preserved");
+      return node;
+    } catch (ConfigException e) {
+      throw new IOException(path.getFileName() + ": invalid HOCON; original preserved", e);
+    }
   }
 
   private static YAMLConfigurationLoader yaml(Path path) {
