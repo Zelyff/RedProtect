@@ -47,38 +47,44 @@ public class AddonsManager {
         if (filePaths != null) {
             try {
                 RedProtect.get().logger.info("Updating Addons...");
-                for (File p: Stream.of(filePaths)
-                        .filter(file -> !file.isDirectory() && file.getName().startsWith("new-"))
-                        .map(File::getAbsoluteFile).toList()){
-                    File newFile = new File(Path.of(RedProtect.get().getDataFolder().getPath(),"addons", p.getName().replace("new-","")).toUri());
+                for (File p : Stream.of(filePaths)
+                        .filter(file -> file.isFile()
+                                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".jar")
+                                && file.getName().startsWith("new-"))
+                        .map(File::getAbsoluteFile).toList()) {
+                    File newFile = new File(Path.of(RedProtect.get().getDataFolder().getPath(), "addons", p.getName().replace("new-", "")).toUri());
                     RedProtect.get().logger.info("Updating " + newFile.getName());
-                    if (newFile.exists()){
-                        if (!newFile.delete()){
+                    if (newFile.exists()) {
+                        if (!newFile.delete()) {
                             RedProtect.get().logger.warning(newFile.getName() + " will be updated only on next reboot");
                         }
                     }
                     p.renameTo(newFile);
                 }
-            } catch (Exception e){
+            } catch (Exception e) {
                 RedProtect.get().logger.warning("Error on update addons: " + e.getMessage());
             }
 
             try {
                 RedProtect.get().logger.info("Loading Addons...");
-                for (File p:Stream.of(filePaths)
-                        .filter(file -> !file.isDirectory() && !file.getName().contains("new-"))
-                        .map(File::getAbsoluteFile).toList()){
+                for (File p : Stream.of(filePaths)
+                        .filter(file -> file.isFile()
+                                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".jar")
+                                && !file.getName().contains("new-"))
+                        .map(File::getAbsoluteFile).toList()) {
                     RedProtect.get().logger.info("Loading " + p.getName());
-                    Plugin pl = RedProtect.get().getServer().getPluginManager().getPlugin(p.getName().split("-")[0]);
+                    String pluginName = p.getName().split("-")[0];
+                    Plugin pl = RedProtect.get().getServer().getPluginManager().getPlugin(pluginName);
                     if (pl == null) {
                         pl = RedProtect.get().getPluginLoader().loadPlugin(p);
-                        if (!pl.isEnabled())
+                        if (pl != null && !pl.isEnabled()) {
                             RedProtect.get().getPluginLoader().enablePlugin(pl);
+                        }
                     } else {
-                        RedProtect.get().logger.warning(p.getName().split("-")[0] + " has been loaded before, ignoring");
+                        RedProtect.get().logger.warning(pluginName + " has been loaded before, ignoring");
                     }
                 }
-            } catch (Exception e){
+            } catch (Exception e) {
                 RedProtect.get().logger.warning("Error on enable addons: " + e.getMessage());
             }
         }

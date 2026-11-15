@@ -53,10 +53,14 @@ public class GuiLangCore {
 
     protected void loadBaseLang() {
         baseLang.clear();
-        try {
-            InputStream fileInput = LangCore.class.getResourceAsStream("/assets/redprotect/guiEN-US.properties");
-            Reader reader = new InputStreamReader(fileInput, StandardCharsets.UTF_8);
-            baseLang.load(reader);
+        try (InputStream fileInput = LangCore.class.getResourceAsStream("/assets/redprotect/guiEN-US.properties")) {
+            if (fileInput == null) {
+                CoreUtil.printJarVersion();
+                return;
+            }
+            try (Reader reader = new InputStreamReader(fileInput, StandardCharsets.UTF_8)) {
+                baseLang.load(reader);
+            }
         } catch (Exception e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();
@@ -65,9 +69,8 @@ public class GuiLangCore {
 
     protected void loadDefaultLang() {
         loadedLang.clear();
-        try {
-            FileInputStream fileInput = new FileInputStream(pathLang);
-            Reader reader = new InputStreamReader(fileInput, StandardCharsets.UTF_8);
+        try (FileInputStream fileInput = new FileInputStream(pathLang);
+             Reader reader = new InputStreamReader(fileInput, StandardCharsets.UTF_8)) {
             loadedLang.load(reader);
         } catch (Exception e) {
             CoreUtil.printJarVersion();
@@ -85,13 +88,13 @@ public class GuiLangCore {
         if (!loadedLang.containsKey("_lang.version"))
             loadedLang.put("_lang.version", pluginVersion);
 
-        try {
-            String header = """
-                    ===================================================
-                       You can translate this file to your language   \s
-                         from our github: https://bit.ly/2IUMc7X      \s
-                    ===================================================""";
-            loadedLang.store(new OutputStreamWriter(new FileOutputStream(pathLang), StandardCharsets.UTF_8), header);
+        String header = """
+                ===================================================
+                   You can translate this file to your language   \s
+                     from our github: https://bit.ly/2IUMc7X      \s
+                ===================================================""";
+        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(pathLang), StandardCharsets.UTF_8)) {
+            loadedLang.store(writer, header);
         } catch (Exception e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();

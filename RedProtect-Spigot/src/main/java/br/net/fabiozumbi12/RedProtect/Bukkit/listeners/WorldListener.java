@@ -32,6 +32,7 @@ import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 
@@ -46,10 +47,8 @@ public class WorldListener implements Listener {
     public void onWorldLoad(WorldLoadEvent e) {
         World w = e.getWorld();
         try {
+            RedProtect.get().getConfigManager().addWorldProperties(w);
             RedProtect.get().getRegionManager().load(w.getName());
-            // RedProtect.get().getConfigManager().addWorldProperties(w);
-
-            RedProtect.get().reloadConfigs();
             RedProtect.get().logger.warning("World loaded: " + w.getName());
         } catch (Exception ex) {
             RedProtect.get().logger.severe("RedProtect problem on load world:");
@@ -61,13 +60,21 @@ public class WorldListener implements Listener {
     public void onWorldUnload(WorldUnloadEvent e) {
         World w = e.getWorld();
         try {
+            if (RedProtect.get().getPreviewService() != null) {
+                RedProtect.get().getPreviewService().clearWorld(w.getName());
+            }
             RedProtect.get().getRegionManager().unload(w.getName());
-
-            RedProtect.get().reloadConfigs();
             RedProtect.get().logger.warning("World unloaded: " + w.getName());
         } catch (Exception ex) {
             RedProtect.get().logger.severe("RedProtect problem on unload world:");
             ex.printStackTrace();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkUnload(ChunkUnloadEvent e) {
+        if (RedProtect.get().getPreviewService() != null) {
+            RedProtect.get().getPreviewService().clearChunk(e.getWorld(), e.getChunk().getX(), e.getChunk().getZ());
         }
     }
 }

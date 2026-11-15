@@ -81,10 +81,26 @@ public class MobFlagGui implements Listener {
         this.flag = flag;
         this.currentPage = 0;
 
+        List<EntityType> entities = getMobEntities(flag);
+        if (flag.equalsIgnoreCase("spawn-monsters")) {
+            this.name = RedProtect.get().getLanguageManager().get("gui.title.spawn-monsters");
+        } else if (flag.equalsIgnoreCase("spawn-animals")) {
+            this.name = RedProtect.get().getLanguageManager().get("gui.title.spawn-animals");
+        }
+
+        boolean monster = flag.equalsIgnoreCase("spawn-monsters");
+        this.allMobItems = buildAllMobItems(entities, region.getFlagString(flag), monster);
+        this.totalPages = Math.max(1, (int) Math.ceil((double) allMobItems.size() / MOBS_PER_PAGE));
+    }
+
+    /**
+     * Collects all valid entity types for {@code spawn-monsters} or {@code spawn-animals}.
+     * Shared by both the Java {@link MobFlagGui} and Bedrock Forms UI.
+     */
+    public static List<EntityType> getMobEntities(String flag) {
         List<EntityType> entities = new ArrayList<>();
 
         if (flag.equalsIgnoreCase("spawn-monsters")) {
-            this.name = RedProtect.get().getLanguageManager().get("gui.title.spawn-monsters");
             entities = Registry.ENTITY_TYPE.stream()
                     .filter(ent -> ent.getEntityClass() != null &&
                             ent.getKey().getNamespace().startsWith("minecraft") &&
@@ -96,10 +112,7 @@ public class MobFlagGui implements Listener {
                             RedProtect.get().getConfigManager().configRoot().flags_configuration.modEntities.monsters.contains(ent.name()))
                     .sorted(Comparator.comparing(EntityType::name)).toList();
             entities.addAll(modEntities);
-        }
-
-        if (flag.equalsIgnoreCase("spawn-animals")) {
-            this.name = RedProtect.get().getLanguageManager().get("gui.title.spawn-animals");
+        } else if (flag.equalsIgnoreCase("spawn-animals")) {
             entities = Registry.ENTITY_TYPE.stream()
                     .filter(ent -> {
                         Class<? extends Entity> entityClass = ent.getEntityClass();
@@ -119,9 +132,7 @@ public class MobFlagGui implements Listener {
             entities.addAll(modEntities);
         }
 
-        boolean monster = flag.equalsIgnoreCase("spawn-monsters");
-        this.allMobItems = buildAllMobItems(entities, region.getFlagString(flag), monster);
-        this.totalPages = Math.max(1, (int) Math.ceil((double) allMobItems.size() / MOBS_PER_PAGE));
+        return entities;
     }
 
     @EventHandler
@@ -133,20 +144,27 @@ public class MobFlagGui implements Listener {
         StringBuilder str = new StringBuilder();
         String trueValue = translateAlternateColorCodes('&', RedProtect.get().guiLang.getFlagString("value") + " " + RedProtect.get().guiLang.getFlagString("true"));
 
+        int selectedCount = 0;
+        int totalItems = 0;
         for (ItemStack item : allMobItems) {
             if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
+                totalItems++;
                 List<String> lore = item.getItemMeta().getLore();
-                if (lore.get(0).equalsIgnoreCase(trueValue)) {
+                if (lore.size() > 1 && lore.get(0).equalsIgnoreCase(trueValue)) {
                     str.append(lore.get(1).replace("§0", "")).append(",");
+                    selectedCount++;
                 }
             }
         }
 
-        String value = str.toString();
-        if (!value.isEmpty()) {
-            value = value.substring(0, value.length() - 1);
+        Object value;
+        if (selectedCount == 0) {
+            value = false;
+        } else if (totalItems > 0 && selectedCount == totalItems) {
+            value = true;
         } else {
-            value = "false";
+            String raw = str.toString();
+            value = raw.substring(0, raw.length() - 1);
         }
 
         setFlagValue(value);
@@ -250,10 +268,11 @@ public class MobFlagGui implements Listener {
 
     @EventHandler
     void onPluginDisable(PluginDisableEvent event) {
-        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Is PluginDisableEvent event.");
-        for (Player play : event.getPlugin().getServer().getOnlinePlayers()) {
-            play.closeInventory();
+        if (!event.getPlugin().equals(RedProtect.get())) {
+            return;
         }
+        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Is PluginDisableEvent event.");
+        close(true);
     }
 
     private void close(boolean close) {
@@ -262,7 +281,9 @@ public class MobFlagGui implements Listener {
 
         // Check for items
         this.player.updateInventory();
-        Bukkit.getScheduler().runTaskLater(RedProtect.get(), this.player::updateInventory, 1);
+        if (RedProtect.get().isEnabled()) {
+            Bukkit.getScheduler().runTaskLater(RedProtect.get(), this.player::updateInventory, 1);
+        }
         if (close) this.player.closeInventory();
 
         this.allMobItems = null;
@@ -289,13 +310,20 @@ public class MobFlagGui implements Listener {
     }
 
     private void setFlagValue(Object value) {
-        region.setFlag(this.player, flag, value);
-        RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.set").replace("{flag}", "'" + flag + "'") + " " + region.getFlagString(flag));
-        RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " SET FLAG " + flag + " of region " + region.getName() + " to " + region.getFlagString(flag));
+        if (region.setFlag(this.player, flag, value)) {
+            RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.set").replace("{flag}", "'" + flag + "'") + " " + region.getFlagString(flag));
+            RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " SET FLAG " + flag + " of region " + region.getName() + " to " + region.getFlagString(flag));
+        }
     }
 
     private List<ItemStack> buildAllMobItems(List<EntityType> entities, String flagValue, boolean monster) {
-        List<String> split = Arrays.asList(flagValue.trim().split(","));
+        String trimmed = flagValue == null ? "" : flagValue.trim();
+        boolean isAll = trimmed.equalsIgnoreCase("true");
+        boolean isNone = trimmed.isEmpty() || trimmed.equalsIgnoreCase("false");
+        List<String> split = Arrays.stream(trimmed.split(","))
+                .map(String::trim)
+                .map(String::toUpperCase)
+                .collect(toList());
         List<ItemStack> items = new ArrayList<>();
 
         for (EntityType ent : entities) {
@@ -309,16 +337,25 @@ public class MobFlagGui implements Listener {
             }
 
             ItemMeta itemMeta = head.getItemMeta();
-            String valueStr = RedProtect.get().guiLang.getFlagString("false");
-            if (split.contains(ent.name())) {
-                valueStr = RedProtect.get().guiLang.getFlagString("true");
+            if (itemMeta == null) {
+                continue;
+            }
+            boolean selected = isAll || (!isNone && split.contains(ent.name()));
+            String valueStr = RedProtect.get().guiLang.getFlagString(selected ? "true" : "false");
+            if (selected) {
                 head.setAmount(2);
             }
 
             String display = translateAlternateColorCodes('&', "&6" + ent.name());
             if (RedProtect.get().hooks.transAPI != null) {
-                String lang = RedProtect.get().getConfigManager().configRoot().language.toLowerCase();
-                display = translateAlternateColorCodes('&', "&6" + RedProtect.get().hooks.transAPI.getApi().translateEntity(ent, lang, true));
+                try {
+                    String lang = RedProtect.get().getConfigManager().configRoot().language.toLowerCase();
+                    String translated = RedProtect.get().hooks.transAPI.getApi().translateEntity(ent, lang, true);
+                    if (translated != null && !translated.isEmpty()) {
+                        display = translateAlternateColorCodes('&', "&6" + translated);
+                    }
+                } catch (Throwable ignored) {
+                }
             }
             itemMeta.setDisplayName(display);
 

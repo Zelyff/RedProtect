@@ -73,33 +73,69 @@ public class ModListener implements PluginMessageListener {
 
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] value) {
-        if (player != null && channel != null && channel.equalsIgnoreCase(MCBRAND)) {
-            String brand = new String(value, StandardCharsets.UTF_8);
-            plugin.getConfigManager().configRoot().server_protection.mods_permissions.forEach((k,v) -> {
-                if (v.block){
-                    v.modId.forEach(i ->{
-                        if (brand.contains(i) && !player.hasPermission("redprotect.mods."+i+".bypass")) {
-                            v.bytes.forEach(b -> player.sendPluginMessage(plugin, brand, b.getBytes(StandardCharsets.UTF_8)));
-                            var act = v.action;
-                            if (!act.isEmpty()) {
-                                act = act
-                                        .replace("{p}", player.getName())
-                                        .replace("{mod}", i);
-                                plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), act);
-                            }
-                        } else if (channel.contains(i) && !player.hasPermission("redprotect.mods."+i+".bypass")) {
-                            v.bytes.forEach(b -> player.sendPluginMessage(plugin, brand, b.getBytes(StandardCharsets.UTF_8)));
-                            var act = v.action;
-                            if (!act.isEmpty()) {
-                                act = act
-                                        .replace("{p}", player.getName())
-                                        .replace("{mod}", i);
-                                plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), act);
-                            }
-                        }
-                    });
+        if (player == null || channel == null || player.hasPermission("redprotect.mods.bypass")) {
+            return;
+        }
+        final boolean isBrandChannel = channel.equalsIgnoreCase(MCBRAND);
+        final String brand = isBrandChannel && value != null
+                ? new String(value, StandardCharsets.UTF_8)
+                : "";
+        final String brandLower = brand.toLowerCase(java.util.Locale.ROOT);
+        plugin.getConfigManager().configRoot().server_protection.mods_permissions.forEach((k, v) -> {
+            if (!v.block || v.modId == null) {
+                return;
+            }
+            v.modId.forEach(i -> {
+                if (i == null || i.isEmpty() || player.hasPermission("redprotect.mods." + i + ".bypass")) {
+                    return;
+                }
+                if (isBrandChannel && brandLower.contains(i.toLowerCase(java.util.Locale.ROOT))) {
+                    if (v.registerPacket && v.bytes != null) {
+                        v.bytes.forEach(b -> sendModPayload(player, i, b));
+                    }
+                    runModAction(v.action, player, i);
+                } else if (!isBrandChannel && channel.equalsIgnoreCase(i)) {
+                    if (v.bytes != null) {
+                        v.bytes.forEach(b -> sendModPayload(player, channel, b));
+                    }
+                    runModAction(v.action, player, i);
                 }
             });
+        });
+    }
+
+    private void sendModPayload(Player player, String targetChannel, String rawSpec) {
+        if (rawSpec == null || rawSpec.isEmpty() || targetChannel == null || !targetChannel.contains(":")) {
+            return;
+        }
+        if (!plugin.getServer().getMessenger().isOutgoingChannelRegistered(plugin, targetChannel)) {
+            return;
+        }
+        byte[] payload;
+        if (rawSpec.startsWith("base64:")) {
+            try {
+                payload = java.util.Base64.getDecoder().decode(rawSpec.substring("base64:".length()));
+            } catch (IllegalArgumentException ex) {
+                payload = rawSpec.getBytes(StandardCharsets.UTF_8);
+            }
+        } else {
+            payload = rawSpec.getBytes(StandardCharsets.UTF_8);
+        }
+        player.sendPluginMessage(plugin, targetChannel, payload);
+    }
+
+    private void runModAction(String action, Player player, String modName) {
+        if (action == null || action.isEmpty() || !plugin.isEnabled()) {
+            return;
+        }
+        String resolved = action
+                .replace("{p}", player.getName())
+                .replace("{mod}", modName);
+        if (plugin.getServer().isPrimaryThread()) {
+            plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), resolved);
+        } else {
+            plugin.getServer().getScheduler().runTask(plugin, () ->
+                    plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), resolved));
         }
     }
 }

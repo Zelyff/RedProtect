@@ -68,12 +68,12 @@ public class LangManager extends LangCore {
         loadDefaultLang();
 
         if (loadedLang.get("_lang.version") != null) {
-            var pluginVersion = Integer.parseInt(RedProtect.get().getDescription().getVersion().split("-")[0].replace(".", ""));
-            int langVersion = Integer.parseInt(loadedLang.get("_lang.version").toString().split("-")[0].replace(".", ""));
-            if (pluginVersion > langVersion) {
+            String pluginVersion = RedProtect.get().getDescription().getVersion();
+            String langVersion = loadedLang.get("_lang.version").toString();
+            if (br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil.compareVersions(pluginVersion, langVersion) > 0) {
                 RedProtect.get().logger.warning("Your lang file is outdated. Probably need strings updates!");
-                RedProtect.get().logger.warning("Lang file version: " + loadedLang.get("_lang.version"));
-                loadedLang.put("_lang.version", RedProtect.get().getDescription().getVersion());
+                RedProtect.get().logger.warning("Lang file version: " + langVersion);
+                loadedLang.put("_lang.version", pluginVersion);
             }
         }
     }

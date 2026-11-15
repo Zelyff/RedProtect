@@ -41,14 +41,19 @@ public class EconomyManager {
     public static long getRegionValue(Region r) {
         long regionCost = 0;
         World w = RedProtect.get().getServer().getWorld(r.getWorld());
+        if (w == null) {
+            return 0;
+        }
         int maxX = r.getMaxMbrX();
         int minX = r.getMinMbrX();
         int maxZ = r.getMaxMbrZ();
         int minZ = r.getMinMbrZ();
+        int minY = Math.max(w.getMinHeight(), r.getMinY());
+        int maxY = Math.min(w.getMaxHeight() - 1, r.getMaxY());
         int factor;
-        for (int x = minX; x < maxX; x++) {
-            for (int y = 0; y < 256; y++) {
-                for (int z = minZ; z < maxZ; z++) {
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
 
                     Block b = w.getBlockAt(x, y, z);
                     if (b.isEmpty()) {

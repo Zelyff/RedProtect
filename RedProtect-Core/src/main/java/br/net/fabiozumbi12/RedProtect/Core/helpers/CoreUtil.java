@@ -71,19 +71,51 @@ public class CoreUtil {
     }
 
     public void saveSBToZip(File file, StringBuilder builder) {
-        try {
-            final ZipOutputStream out = new ZipOutputStream(new FileOutputStream(file));
+        try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(file))) {
             ZipEntry e = new ZipEntry("RedProtectLogs.txt");
             out.putNextEntry(e);
 
-            byte[] data = builder.toString().getBytes();
+            byte[] data = builder.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
             out.write(data, 0, data.length);
             out.closeEntry();
-            out.close();
         } catch (Exception e) {
             printJarVersion();
             e.printStackTrace();
         }
+    }
+
+    public static int compareVersions(String v1, String v2) {
+        int[] p1 = parseVersionParts(v1);
+        int[] p2 = parseVersionParts(v2);
+        int max = Math.max(p1.length, p2.length);
+        for (int i = 0; i < max; i++) {
+            int a = i < p1.length ? p1[i] : 0;
+            int b = i < p2.length ? p2[i] : 0;
+            if (a != b) {
+                return Integer.compare(a, b);
+            }
+        }
+        return 0;
+    }
+
+    private static int[] parseVersionParts(String version) {
+        if (version == null || version.isBlank()) {
+            return new int[]{0};
+        }
+        String core = version.trim().split("-", 2)[0];
+        String[] rawParts = core.split("\\.");
+        int[] nums = new int[rawParts.length];
+        for (int i = 0; i < rawParts.length; i++) {
+            String digits = rawParts[i].replaceAll("[^0-9]", "");
+            if (!digits.isEmpty()) {
+                try {
+                    nums[i] = Integer.parseInt(digits);
+                } catch (NumberFormatException ignored) {
+                    nums[i] = 0;
+                }
+            }
+        }
+        return nums;
     }
 
     protected File genFileName(String Path, Boolean isBackup, int maxbackups, String dateFormat) {
@@ -91,12 +123,11 @@ public class CoreUtil {
         String date = dateFormat.replace("/", "-");
         File logfile = new File(Path + date + "-" + count + ".zip");
         File[] files = new File(Path).listFiles();
-        HashMap<Long, File> keyFiles = new HashMap<>();
-        if (files != null && files.length >= maxbackups && isBackup) {
-            for (File key : files) {
-                keyFiles.put(key.lastModified(), key);
-            }
-            keyFiles.get(Collections.min(keyFiles.keySet())).delete();
+        if (files != null && isBackup && maxbackups > 0 && files.length >= maxbackups) {
+            Arrays.stream(files)
+                    .filter(File::isFile)
+                    .min(Comparator.comparingLong(File::lastModified))
+                    .ifPresent(File::delete);
         }
 
         while (logfile.exists()) {
@@ -149,20 +180,21 @@ public class CoreUtil {
 
     public void zipFolder(String sourceDirPath, String zipFilePath) throws IOException {
         Path p = Files.createFile(Paths.get(zipFilePath));
-        try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p))) {
-            Path pp = Paths.get(sourceDirPath);
-            Files.walk(pp)
-                    .filter(path -> !Files.isDirectory(path))
-                    .forEach(path -> {
-                        ZipEntry zipEntry = new ZipEntry(pp.relativize(path).toString());
-                        try {
-                            zs.putNextEntry(zipEntry);
-                            Files.copy(path, zs);
-                            zs.closeEntry();
-                        } catch (IOException e) {
-                            System.err.println(e);
-                        }
-                    });
+        Path pp = Paths.get(sourceDirPath);
+        if (!Files.exists(pp)) {
+            return;
+        }
+        try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(p));
+             java.util.stream.Stream<Path> walk = Files.walk(pp)) {
+            Iterator<Path> it = walk.filter(path -> !Files.isDirectory(path)).iterator();
+            while (it.hasNext()) {
+                Path path = it.next();
+                String entryName = pp.relativize(path).toString().replace('\\', '/');
+                ZipEntry zipEntry = new ZipEntry(entryName);
+                zs.putNextEntry(zipEntry);
+                Files.copy(path, zs);
+                zs.closeEntry();
+            }
         }
     }
 }

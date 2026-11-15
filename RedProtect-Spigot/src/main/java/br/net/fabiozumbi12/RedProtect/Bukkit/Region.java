@@ -240,9 +240,19 @@ public class Region extends CoreRegion {
         this.flags.put(event.getFlag(), event.getFlagValue());
         RedProtect.get().getRegionManager().updateLiveFlags(this,
                 event.getFlag(),
-                event.getFlagValue().toString());
+                String.valueOf(event.getFlagValue()));
         updateSigns(event.getFlag());
         checkParticle();
+        return true;
+    }
+
+    public boolean removeFlag(CommandSender cause, String fname) {
+        ChangeRegionFlagEvent event = new ChangeRegionFlagEvent(cause, this, fname, "");
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            return false;
+        }
+        removeFlag(event.getFlag());
         return true;
     }
 
@@ -251,6 +261,7 @@ public class Region extends CoreRegion {
         if (this.flags.containsKey(Name)) {
             this.flags.remove(Name);
             RedProtect.get().getRegionManager().removeLiveFlags(this, Name);
+            updateSigns(Name);
         }
         checkParticle();
     }
@@ -584,13 +595,14 @@ public class Region extends CoreRegion {
 
     public String getFlagString(String key) {
         if (!flagExists(key)) {
-            if (RedProtect.get().getConfigManager().getDefFlagsValues().get(key) != null) {
-                return (String) RedProtect.get().getConfigManager().getDefFlagsValues().get(key);
-            } else {
-                return RedProtect.get().getConfigManager().configRoot().flags.getOrDefault(key, false).toString();
+            Object def = RedProtect.get().getConfigManager().getDefFlagsValues().get(key);
+            if (def != null) {
+                return String.valueOf(def);
             }
+            Object cfgDef = RedProtect.get().getConfigManager().configRoot().flags.get(key);
+            return cfgDef != null ? String.valueOf(cfgDef) : "false";
         } else {
-            return this.flags.get(key).toString();
+            return String.valueOf(this.flags.get(key));
         }
     }
 

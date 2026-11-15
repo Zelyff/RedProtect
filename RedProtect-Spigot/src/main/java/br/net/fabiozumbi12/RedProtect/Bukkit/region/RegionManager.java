@@ -39,22 +39,44 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Get the region database from here. All functions for manage regions can be found in this class.
  */
 public class RegionManager {
 
-    private final HashMap<String, WorldRegionManager> regionManagers;
-    private final HashMap<String, Region> bLoc;
+    private static final int MAX_LOCATION_CACHE_SIZE = 4096;
+    private static final long LOCATION_CACHE_TTL_MS = 10_000L;
+
+    private static final class CachedRegionEntry {
+        private final Region region;
+        private final String world;
+        private final long expiresAtMs;
+
+        private CachedRegionEntry(Region region, String world, long expiresAtMs) {
+            this.region = region;
+            this.world = world;
+            this.expiresAtMs = expiresAtMs;
+        }
+    }
+
+    private final Map<String, WorldRegionManager> regionManagers;
+    private final Map<String, CachedRegionEntry> bLoc;
 
     public RegionManager() {
-        this.bLoc = new HashMap<>();
-        this.regionManagers = new HashMap<>();
+        this.bLoc = Collections.synchronizedMap(new LinkedHashMap<String, CachedRegionEntry>(512, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, CachedRegionEntry> eldest) {
+                return size() > MAX_LOCATION_CACHE_SIZE;
+            }
+        });
+        this.regionManagers = new ConcurrentHashMap<>();
     }
 
     public void loadAll() throws Exception {
@@ -93,13 +115,15 @@ public class RegionManager {
     }
 
     public void unload(String w) {
-        if (!this.regionManagers.containsKey(w)) {
+        if (w == null || !this.regionManagers.containsKey(w)) {
             return;
         }
-        WorldRegionManager mgr = this.regionManagers.get(w);
-        mgr.save(false);
-        mgr.closeConn();
-        this.regionManagers.remove(w);
+        WorldRegionManager mgr = this.regionManagers.remove(w);
+        if (mgr != null) {
+            mgr.save(false);
+            mgr.closeConn();
+        }
+        removeWorldCache(w);
     }
 
     public int saveAll(boolean force) {
@@ -115,16 +139,26 @@ public class RegionManager {
 
     public Region getRegionById(String rid) {
         if (rid == null) return null;
-        if (!regionManagers.containsKey(rid.split("@")[1])) return null;
-        return this.regionManagers.get(rid.split("@")[1]).getRegion(rid.split("@")[0]);
+        int sep = rid.indexOf('@');
+        if (sep <= 0 || sep >= rid.length() - 1) {
+            return null;
+        }
+        String rname = rid.substring(0, sep);
+        String world = rid.substring(sep + 1);
+        WorldRegionManager mgr = this.regionManagers.get(world);
+        return mgr != null ? mgr.getRegion(rname) : null;
     }
 
     public Region getRegion(String rname, String w) {
-        if (!regionManagers.containsKey(w)) return null;
-        return this.regionManagers.get(w).getRegion(rname);
+        if (rname == null || w == null) return null;
+        WorldRegionManager mgr = this.regionManagers.get(w);
+        return mgr != null ? mgr.getRegion(rname) : null;
     }
 
     public int getTotalRegionSize(String uuid, String world) {
+        if (uuid == null || world == null) {
+            return 0;
+        }
         World w = Bukkit.getWorld(world);
         if (w == null) {
             return 0;
@@ -132,19 +166,23 @@ public class RegionManager {
         int size = 0;
         if (RedProtect.get().getConfigManager().configRoot().region_settings.blocklimit_per_world) {
             WorldRegionManager rms = this.regionManagers.get(world);
-            size = rms.getTotalRegionSize(uuid);
+            if (rms != null) {
+                size = rms.getTotalRegionSize(uuid);
+            }
         } else {
             for (World wr : Bukkit.getWorlds()) {
                 WorldRegionManager rms = this.regionManagers.get(wr.getName());
                 if (rms == null) {
                     try {
                         this.load(wr.getName());
+                        rms = this.regionManagers.get(wr.getName());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
-                assert rms != null;
-                size += rms.getTotalRegionSize(uuid);
+                if (rms != null) {
+                    size += rms.getTotalRegionSize(uuid);
+                }
             }
         }
         return size;
@@ -160,7 +198,8 @@ public class RegionManager {
      * @return {@code Set<Region>} with regions
      */
     public Set<Region> getLeaderRegions(String uuid, String world) {
-        return this.regionManagers.get(world).getLeaderRegions(uuid);
+        WorldRegionManager mgr = this.regionManagers.get(world);
+        return mgr != null ? mgr.getLeaderRegions(uuid) : new HashSet<>();
     }
 
     /**
@@ -173,7 +212,8 @@ public class RegionManager {
      * @return {@code Set<Region>} with regions
      */
     public Set<Region> getAdminRegions(String uuid, String world) {
-        return this.regionManagers.get(world).getAdminRegions(uuid);
+        WorldRegionManager mgr = this.regionManagers.get(world);
+        return mgr != null ? mgr.getAdminRegions(uuid) : new HashSet<>();
     }
 
     /**
@@ -186,7 +226,8 @@ public class RegionManager {
      * @return {@code Set<Region>} with regions
      */
     public Set<Region> getMemberRegions(String uuid, String world) {
-        return this.regionManagers.get(world).getMemberRegions(uuid);
+        WorldRegionManager mgr = this.regionManagers.get(world);
+        return mgr != null ? mgr.getMemberRegions(uuid) : new HashSet<>();
     }
 
     /**
@@ -252,12 +293,17 @@ public class RegionManager {
     }
 
     public Set<Region> getRegionsNear(Player player, int i) {
-        return regionManagers.get(player.getWorld().getName()).getRegionsNear(player.getLocation().getBlockX(), player.getLocation().getBlockZ(), i);
+        if (player == null || player.getWorld() == null) {
+            return new HashSet<>();
+        }
+        WorldRegionManager mgr = regionManagers.get(player.getWorld().getName());
+        return mgr != null ? mgr.getRegionsNear(player.getLocation().getBlockX(), player.getLocation().getBlockZ(), i) : new HashSet<>();
     }
 
     public Set<Region> getRegions(String player, String w) {
-        if (regionManagers.containsKey(w))
-            return this.regionManagers.get(w).getLeaderRegions(player);
+        WorldRegionManager mgr = regionManagers.get(w);
+        if (mgr != null)
+            return mgr.getLeaderRegions(player);
         return new HashSet<>();
     }
 
@@ -272,7 +318,15 @@ public class RegionManager {
     }
 
     public void add(Region r, String w) {
-        this.regionManagers.get(w).add(r);
+        if (r == null || w == null) {
+            return;
+        }
+        WorldRegionManager rms = this.regionManagers.get(w);
+        if (rms == null) {
+            return;
+        }
+        rms.add(r);
+        removeWorldCache(w);
         if (RedProtect.get().hooks.checkDyn() && RedProtect.get().getConfigManager().configRoot().hooks.dynmap.enable) {
             try {
                 RedProtect.get().hooks.dynmapHook.addMark(r);
@@ -283,26 +337,47 @@ public class RegionManager {
         }
     }
 
+    public void replace(Region oldRegion, Region newRegion, String w) {
+        if (oldRegion != null) {
+            remove(oldRegion, w);
+        }
+        if (newRegion != null) {
+            add(newRegion, w);
+        }
+    }
+
     public long getCanPurgePlayer(String player, String world) {
         if (RedProtect.get().getConfigManager().configRoot().purge.purge_limit_perworld) {
-            return regionManagers.get(world).getCanPurgeCount(player, false);
+            WorldRegionManager mgr = regionManagers.get(world);
+            return mgr != null ? mgr.getCanPurgeCount(player, false) : 0;
         } else {
             long total = 0;
             for (World wr : Bukkit.getWorlds()) {
-                total += regionManagers.get(wr.getName()).getCanPurgeCount(player, false);
+                WorldRegionManager mgr = regionManagers.get(wr.getName());
+                if (mgr != null) {
+                    total += mgr.getCanPurgeCount(player, false);
+                }
             }
             return total;
         }
     }
 
     public void save(String w) {
-        this.regionManagers.get(w).save(false);
+        WorldRegionManager mgr = this.regionManagers.get(w);
+        if (mgr != null) {
+            mgr.save(false);
+        }
     }
 
     public void remove(Region r, String w) {
+        if (r == null || w == null) {
+            return;
+        }
         r.notifyRemove();
         WorldRegionManager rms = this.regionManagers.get(w);
-        rms.remove(r);
+        if (rms != null) {
+            rms.remove(r);
+        }
         if (RedProtect.get().hooks.checkDyn() && RedProtect.get().getConfigManager().configRoot().hooks.dynmap.enable) {
             try {
                 RedProtect.get().hooks.dynmapHook.removeMark(r);
@@ -315,18 +390,40 @@ public class RegionManager {
     }
 
     public Set<Region> getRegions(Player p, int x, int y, int z) {
-        return this.regionManagers.get(p.getWorld().getName()).getRegions(x, y, z);
+        if (p == null || p.getWorld() == null) {
+            return new HashSet<>();
+        }
+        WorldRegionManager mgr = this.regionManagers.get(p.getWorld().getName());
+        return mgr != null ? mgr.getRegions(x, y, z) : new HashSet<>();
     }
 
     public Set<Region> getInnerRegions(Region region, String w) {
-        return this.regionManagers.get(w).getInnerRegions(region);
+        if (region == null || w == null) {
+            return new HashSet<>();
+        }
+        WorldRegionManager mgr = this.regionManagers.get(w);
+        return mgr != null ? mgr.getInnerRegions(region) : new HashSet<>();
     }
 
     private void removeCache(Region r) {
+        if (r == null) {
+            return;
+        }
         try {
-            bLoc.values().removeIf(v -> v == r);
+            synchronized (bLoc) {
+                bLoc.values().removeIf(v -> v.region == r);
+            }
         } catch (Exception ex) {
             RedProtect.get().logger.severe("Problems when remove cache for region " + r.getName() + ": " + ex.getLocalizedMessage());
+        }
+    }
+
+    private void removeWorldCache(String world) {
+        if (world == null) {
+            return;
+        }
+        synchronized (bLoc) {
+            bLoc.values().removeIf(v -> world.equals(v.world));
         }
     }
 
@@ -361,27 +458,10 @@ public class RegionManager {
      * @return {@code Region} - Or null if no regions on this location.
      */
     public Region getTopRegion(Location loc) {
-        Region region = bLoc.get(loc.getBlock().getLocation().toString());
-        if (region != null) {
-            RedProtect.get().logger.debug(LogLevel.DEFAULT, "Get from cache");
-            return region;
-        } else {
-            if (!this.regionManagers.containsKey(loc.getWorld().getName())) {
-                return null;
-            }
-
-            WorldRegionManager rm = this.regionManagers.get(loc.getWorld().getName());
-            region = rm.getTopRegion(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
-            try {
-                if (region != null) {
-                    bLoc.put(loc.getBlock().getLocation().toString(), region);
-                    Bukkit.getScheduler().runTaskLaterAsynchronously(RedProtect.get(), () -> bLoc.remove(loc.getBlock().getLocation().toString()), 200/*10 seconds*/);
-                    RedProtect.get().logger.debug(LogLevel.DEFAULT, "Get from DB");
-                }
-            } catch (Exception ignored) {
-            }
+        if (loc == null || loc.getWorld() == null) {
+            return null;
         }
-        return region;
+        return getTopRegion(loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
     }
 
     /**
@@ -394,7 +474,35 @@ public class RegionManager {
      * @return {@code Region} - Or null if no regions on this location.
      */
     public Region getTopRegion(String w, int x, int y, int z) {
-        return getTopRegion(new Location(Bukkit.getWorld(w), x, y, z));
+        if (w == null) {
+            return null;
+        }
+        String cacheKey = w + ":" + x + ":" + y + ":" + z;
+        long now = System.currentTimeMillis();
+        synchronized (bLoc) {
+            CachedRegionEntry cached = bLoc.get(cacheKey);
+            if (cached != null) {
+                if (now < cached.expiresAtMs) {
+                    RedProtect.get().logger.debug(LogLevel.DEFAULT, "Get from cache");
+                    return cached.region;
+                }
+                bLoc.remove(cacheKey);
+            }
+        }
+
+        WorldRegionManager rm = this.regionManagers.get(w);
+        if (rm == null) {
+            return null;
+        }
+
+        Region region = rm.getTopRegion(x, y, z);
+        if (region != null) {
+            synchronized (bLoc) {
+                bLoc.put(cacheKey, new CachedRegionEntry(region, w, now + LOCATION_CACHE_TTL_MS));
+            }
+            RedProtect.get().logger.debug(LogLevel.DEFAULT, "Get from DB");
+        }
+        return region;
     }
 
     /**
@@ -407,11 +515,11 @@ public class RegionManager {
      * @return {@code Region} - Or null if no regions on this location.
      */
     public Region getLowRegion(String w, int x, int y, int z) {
-        if (!this.regionManagers.containsKey(w)) {
+        if (w == null) {
             return null;
         }
         WorldRegionManager rm = this.regionManagers.get(w);
-        return rm.getLowRegion(x, y, z);
+        return rm != null ? rm.getLowRegion(x, y, z) : null;
     }
 
     /**
@@ -421,11 +529,11 @@ public class RegionManager {
      * @return {@code Region} - Or null if no regions on this location.
      */
     public Region getLowRegion(Location loc) {
-        if (!this.regionManagers.containsKey(loc.getWorld().getName())) {
+        if (loc == null || loc.getWorld() == null) {
             return null;
         }
         WorldRegionManager rm = this.regionManagers.get(loc.getWorld().getName());
-        return rm.getLowRegion(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+        return rm != null ? rm.getLowRegion(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ()) : null;
     }
 
     /**
@@ -438,11 +546,11 @@ public class RegionManager {
      * @return {@code Map<Integer,Region>} - Indexed by priority
      */
     public Map<Integer, Region> getGroupRegion(String w, int x, int y, int z) {
-        if (!this.regionManagers.containsKey(w)) {
+        if (w == null) {
             return null;
         }
         WorldRegionManager rm = this.regionManagers.get(w);
-        return rm.getGroupRegion(x, y, z);
+        return rm != null ? rm.getGroupRegion(x, y, z) : null;
     }
 
     /**
@@ -451,60 +559,78 @@ public class RegionManager {
      * @return {@code Map<Integer,Region>} - Indexed by priority
      */
     public Map<Integer, Region> getGroupRegion(Location loc) {
-        if (!this.regionManagers.containsKey(loc.getWorld().getName())) {
+        if (loc == null || loc.getWorld() == null) {
             return null;
         }
         WorldRegionManager rm = this.regionManagers.get(loc.getWorld().getName());
-        return rm.getGroupRegion(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+        return rm != null ? rm.getGroupRegion(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ()) : null;
     }
 
     public Set<Region> getAllRegions() {
         Set<Region> regions = new HashSet<>();
         for (World w : RedProtect.get().getServer().getWorlds()) {
             WorldRegionManager rm = this.regionManagers.get(w.getName());
-            regions.addAll(rm.getAllRegions());
+            if (rm != null) {
+                regions.addAll(rm.getAllRegions());
+            }
         }
         return regions;
     }
 
     public Set<Region> getRegionsByWorld(String w) {
         WorldRegionManager rm = this.regionManagers.get(w);
-        return rm.getAllRegions();
+        return rm != null ? rm.getAllRegions() : new HashSet<>();
     }
 
     public void clearDB() {
-        for (World w : RedProtect.get().getServer().getWorlds()) {
-            WorldRegionManager rm = this.regionManagers.get(w.getName());
-            rm.clearRegions();
+        for (WorldRegionManager rm : this.regionManagers.values()) {
+            if (rm != null) {
+                rm.clearRegions();
+            }
         }
         this.regionManagers.clear();
+        this.bLoc.clear();
     }
 
     public void updateLiveRegion(Region r, String columm, Object value) {
+        if (r == null) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
-        rm.updateLiveRegion(r.getName(), columm, value);
+        if (rm != null) {
+            rm.updateLiveRegion(r.getName(), columm, value);
+        }
     }
 
     public void updateLiveFlags(Region r, String flag, String value) {
+        if (r == null) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
-        rm.updateLiveFlags(r.getName(), flag, value);
+        if (rm != null) {
+            rm.updateLiveFlags(r.getName(), flag, value);
+        }
     }
 
     public void removeLiveFlags(Region r, String flag) {
+        if (r == null) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
-        rm.removeLiveFlags(r.getName(), flag);
+        if (rm != null) {
+            rm.removeLiveFlags(r.getName(), flag);
+        }
     }
 
     public void updateLiveMembers(Region r) {
+        if (r == null) return;
         WorldRegionManager rm = this.regionManagers.get(r.getWorld());
-        rm.updateLiveMembers(r.getName(), r.getLeadersString(), r.getAdminString(), r.getMembersString());
+        if (rm != null) {
+            rm.updateLiveMembers(r.getName(), r.getLeadersString(), r.getAdminString(), r.getMembersString());
+        }
     }
 
     public int getTotalRegionsNum() {
         int total = 0;
         for (World w : RedProtect.get().getServer().getWorlds()) {
             WorldRegionManager rm = this.regionManagers.get(w.getName());
-            total = total + rm.getTotalRegionNum();
+            if (rm != null) {
+                total = total + rm.getTotalRegionNum();
+            }
         }
         return total;
     }

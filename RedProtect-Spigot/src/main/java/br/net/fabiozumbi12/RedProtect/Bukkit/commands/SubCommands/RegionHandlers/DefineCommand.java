@@ -28,12 +28,14 @@ package br.net.fabiozumbi12.RedProtect.Bukkit.commands.SubCommands.RegionHandler
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
-import br.net.fabiozumbi12.RedProtect.Bukkit.commands.CommandHandlers;
 import br.net.fabiozumbi12.RedProtect.Bukkit.actions.DefineRegionBuilder;
+import br.net.fabiozumbi12.RedProtect.Bukkit.claim.ClaimSessionManager;
+import br.net.fabiozumbi12.RedProtect.Bukkit.commands.CommandHandlers;
 import br.net.fabiozumbi12.RedProtect.Bukkit.commands.SubCommand;
 import br.net.fabiozumbi12.RedProtect.Bukkit.region.RegionBuilder;
 import br.net.fabiozumbi12.RedProtect.Core.region.PlayerRegion;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -42,6 +44,7 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 
 public class DefineCommand implements SubCommand {
 
@@ -53,53 +56,63 @@ public class DefineCommand implements SubCommand {
         }
 
         Player player = (Player) sender;
-
-        if (args.length == 0) {
-            PlayerRegion serverName = new PlayerRegion(RedProtect.get().getConfigManager().configRoot().region_settings.default_leader, RedProtect.get().getConfigManager().configRoot().region_settings.default_leader);
-            String name = RedProtect.get().getUtil().nameGen(RedProtect.get().getConfigManager().configRoot().region_settings.default_leader, player.getWorld().getName());
-
-            RedProtect.get().getLanguageManager().sendMessage(player, "regionbuilder.creating");
-
-            // Run claim async
-            Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-                RegionBuilder rb2 = new DefineRegionBuilder(player, RedProtect.get().firstLocationSelections.get(player), RedProtect.get().secondLocationSelections.get(player), name, serverName, new HashSet<>(), true);
-                if (rb2.ready()) {
-                    Region r2 = rb2.build();
-                    RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.created") + " " + r2.getName() + ".");
-                    RedProtect.get().getRegionManager().add(r2, player.getWorld().getName());
-
-                    RedProtect.get().firstLocationSelections.remove(player);
-                    RedProtect.get().secondLocationSelections.remove(player);
-
-                    RedProtect.get().logger.addLog("(World " + r2.getWorld() + ") Player " + player.getName() + " DEFINED region " + r2.getName());
-                }
-            });
-            return true;
-        }
-
-        if (args.length == 1) {
-            PlayerRegion serverName = new PlayerRegion(RedProtect.get().getConfigManager().configRoot().region_settings.default_leader, RedProtect.get().getConfigManager().configRoot().region_settings.default_leader);
-            RedProtect.get().getLanguageManager().sendMessage(player, "regionbuilder.creating");
-
-            // Run claim async
-            Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-                RegionBuilder rb2 = new DefineRegionBuilder(player, RedProtect.get().firstLocationSelections.get(player), RedProtect.get().secondLocationSelections.get(player), args[0], serverName, new HashSet<>(), true);
-                if (rb2.ready()) {
-                    Region r2 = rb2.build();
-                    RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.created") + " " + r2.getName() + ".");
-                    RedProtect.get().getRegionManager().add(r2, player.getWorld().getName());
-
-                    RedProtect.get().firstLocationSelections.remove(player);
-                    RedProtect.get().secondLocationSelections.remove(player);
-
-                    RedProtect.get().logger.addLog("(World " + r2.getWorld() + ") Player " + player.getName() + " DEFINED region " + r2.getName());
-                }
-            });
+        if (args.length <= 1) {
+            String defaultLeader = RedProtect.get().getConfigManager().configRoot().region_settings.default_leader;
+            PlayerRegion serverName = new PlayerRegion(defaultLeader, defaultLeader);
+            String name = args.length == 0
+                    ? RedProtect.get().getUtil().nameGen(defaultLeader, player.getWorld().getName())
+                    : args[0];
+            runDefine(player, name, serverName);
             return true;
         }
 
         RedProtect.get().getLanguageManager().sendCommandHelp(sender, "define", true);
         return true;
+    }
+
+    private void runDefine(Player player, String name, PlayerRegion serverName) {
+        ClaimSessionManager sessions = RedProtect.get().getClaimSessionManager();
+        UUID playerId = player.getUniqueId();
+        if (sessions != null && !sessions.tryAcquireInFlight(playerId)) {
+            return;
+        }
+
+        Location loc1 = RedProtect.get().firstLocationSelections.get(player);
+        Location loc2 = RedProtect.get().secondLocationSelections.get(player);
+        String worldName = player.getWorld().getName();
+        RedProtect.get().getLanguageManager().sendMessage(player, "regionbuilder.creating");
+
+        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
+            RegionBuilder rb2 = null;
+            try {
+                rb2 = new DefineRegionBuilder(player, loc1, loc2, name, serverName, new HashSet<>(), true);
+            } finally {
+                RegionBuilder finalBuilder = rb2;
+                if (!RedProtect.get().isEnabled()) {
+                    if (sessions != null) {
+                        sessions.releaseInFlight(playerId);
+                    }
+                } else {
+                    Bukkit.getScheduler().runTask(RedProtect.get(), () -> {
+                        if (sessions != null) {
+                            sessions.releaseInFlight(playerId);
+                        }
+                        if (finalBuilder != null && finalBuilder.ready()) {
+                            Region r2 = finalBuilder.build();
+                            if (!finalBuilder.isCommitted()) {
+                                RedProtect.get().getRegionManager().add(r2, worldName);
+                            }
+                            RedProtect.get().firstLocationSelections.remove(player);
+                            RedProtect.get().secondLocationSelections.remove(player);
+                            if (player.isOnline()) {
+                                RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.created") + " " + r2.getName() + ".");
+                            }
+                            RedProtect.get().logger.addLog("(World " + r2.getWorld() + ") Player " + player.getName() + " DEFINED region " + r2.getName());
+                        }
+                    });
+                }
+            }
+        });
     }
 
     @Override

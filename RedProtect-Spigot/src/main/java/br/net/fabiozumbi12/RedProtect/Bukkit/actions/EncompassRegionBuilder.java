@@ -31,7 +31,7 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
 import br.net.fabiozumbi12.RedProtect.Bukkit.API.events.CreateRegionEvent;
 import br.net.fabiozumbi12.RedProtect.Bukkit.hooks.WEHook;
 import br.net.fabiozumbi12.RedProtect.Bukkit.region.RegionBuilder;
-import br.net.fabiozumbi12.RedProtect.Core.helpers.LogLevel;
+import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -41,7 +41,6 @@ import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 
 public class EncompassRegionBuilder extends RegionBuilder {
 
@@ -70,7 +69,7 @@ public class EncompassRegionBuilder extends RegionBuilder {
             return;
         }
 
-        //filter name
+        // filter name
         regionName = RedProtect.get().getUtil().fixRegionName(p, regionName);
         if (regionName == null) {
             this.setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.error"));
@@ -96,7 +95,8 @@ public class EncompassRegionBuilder extends RegionBuilder {
 
             for (int bi = 0; bi < block.length; ++bi) {
 
-                boolean validBlock = (block[bi].getType().name().contains(RedProtect.get().getConfigManager().configRoot().region_settings.block_id));
+                boolean validBlock = (block[bi].getType().name()
+                        .contains(RedProtect.get().getConfigManager().configRoot().region_settings.block_id));
 
                 if (validBlock && !block[bi].getLocation().equals(last.getLocation())) {
                     ++nearbyCount;
@@ -116,7 +116,7 @@ public class EncompassRegionBuilder extends RegionBuilder {
                 if (i != 0) {
                     blocks.add(current);
 
-                    //set max and min y blocks
+                    // set max and min y blocks
                     if (current.getLocation().getBlockY() > maxby) {
                         maxby = current.getLocation().getBlockY();
                     }
@@ -137,14 +137,14 @@ public class EncompassRegionBuilder extends RegionBuilder {
                             admins.add(owner1);
                         }
 
-
                         if (owner2 == null || owner2.isEmpty()) {
                             e.setLine(3, "--");
                         } else {
                             if (!(owner2.startsWith("[") && owner2.endsWith("]"))) {
                                 if (pName.equals(owner2)) {
                                     e.setLine(3, "--");
-                                    RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.sign.dontneed.name");
+                                    RedProtect.get().getLanguageManager().sendMessage(p,
+                                            "regionbuilder.sign.dontneed.name");
                                 } else {
                                     admins.add(owner2);
                                 }
@@ -175,68 +175,64 @@ public class EncompassRegionBuilder extends RegionBuilder {
                             miny = w.getMinHeight();
                         }
 
-                        Region newRegion = new Region(regionName, new HashSet<>(), new HashSet<>(), new HashSet<>(), rx, rz, miny, maxy, 0, w.getName(), RedProtect.get().getUtil().dateNow(), RedProtect.get().getConfigManager().getDefFlagsValues(), "", 0, null, true, true);
+                        Region newRegion = new Region(regionName, new HashSet<>(), new HashSet<>(), new HashSet<>(), rx,
+                                rz, miny, maxy, 0, w.getName(), RedProtect.get().getUtil().dateNow(),
+                                RedProtect.get().getConfigManager().getDefFlagsValues(), "", 0, null, true, true);
                         newRegion.addLeader(pName);
                         admins.forEach(newRegion::addAdmin);
                         Set<String> othersName = new HashSet<>();
-                        Region otherrg;
                         Set<Location> limitlocs = newRegion.getLimitLocs(minby, maxby, false);
 
-                        //check retangular region
+                        // check retangular region
                         for (Block bkloc : blocks) {
                             if (!limitlocs.contains(bkloc.getLocation())) {
-                                setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.neeberetangle"));
+                                setErrorSign(e,
+                                        RedProtect.get().getLanguageManager().get("regionbuilder.neeberetangle"));
                                 return;
                             }
                         }
 
-                        //check regions inside region
-                        for (Region r : RedProtect.get().getRegionManager().getRegionsByWorld(p.getWorld().getName())) {
-                            if (r.getMaxMbrX() <= newRegion.getMaxMbrX() && r.getMaxY() <= newRegion.getMaxY() && r.getMaxMbrZ() <= newRegion.getMaxMbrZ() && r.getMinMbrX() >= newRegion.getMinMbrX() && r.getMinY() >= newRegion.getMinY() && r.getMinMbrZ() >= newRegion.getMinMbrZ()) {
-                                if (!r.isLeader(p) && !p.hasPermission("redprotect.bypass")) {
-                                    setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping").replace("{location}", "x: " + r.getCenterX() + ", z: " + r.getCenterZ()).replace("{player}", r.getLeadersDesc()));
-                                    return;
-                                }
-                                othersName.add(r.getName());
+                        boolean bypassAll = p.hasPermission("redprotect.bypass");
+                        String worldName = w.getName();
+
+                        // Full 3D cuboid overlap check
+                        for (Region other : RedProtect.get().getRegionManager().getRegionsByWorld(worldName)) {
+                            if (!RegionCreationSupport.cuboidsIntersect(newRegion, other)) {
+                                continue;
                             }
-                        }
-
-                        //check borders for other regions
-                        for (Location loc : limitlocs) {
-
-                            otherrg = RedProtect.get().getRegionManager().getTopRegion(loc);
-                            RedProtect.get().logger.debug(LogLevel.DEFAULT, "protection Block is: " + loc.getBlock().getType().name());
-
-                            if (otherrg != null) {
-                                if (!otherrg.isLeader(p) && !p.hasPermission("redprotect.bypass")) {
-                                    setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping").replace("{location}", "x: " + otherrg.getCenterX() + ", z: " + otherrg.getCenterZ()).replace("{player}", otherrg.getLeadersDesc()));
-                                    return;
-                                }
-                                othersName.add(otherrg.getName());
+                            boolean samePlanarBounds = other.getMinMbrX() == newRegion.getMinMbrX()
+                                    && other.getMaxMbrX() == newRegion.getMaxMbrX()
+                                    && other.getMinMbrZ() == newRegion.getMinMbrZ()
+                                    && other.getMaxMbrZ() == newRegion.getMaxMbrZ();
+                            if ((samePlanarBounds && !bypassAll) || (!other.isLeader(p) && !bypassAll)) {
+                                setErrorSign(e,
+                                        RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping")
+                                                .replace("{location}",
+                                                        "x: " + other.getCenterX() + ", z: " + other.getCenterZ())
+                                                .replace("{player}", other.getLeadersDesc()));
+                                return;
                             }
-                        }
-
-                        //check if same area
-                        otherrg = RedProtect.get().getRegionManager().getTopRegion(newRegion.getCenterLoc());
-                        if (otherrg != null && otherrg.get4Points(current.getY()).equals(newRegion.get4Points(current.getY())) && !p.hasPermission("redprotect.bypass")) {
-                            setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping").replace("{location}", "x: " + otherrg.getCenterX() + ", z: " + otherrg.getCenterZ()).replace("{player}", otherrg.getLeadersDesc()));
-                            return;
+                            othersName.add(other.getName());
                         }
 
                         newRegion.setPrior(RedProtect.get().getUtil().getUpdatedPrior(newRegion));
 
                         int claimLimit = RedProtect.get().getPermissionHandler().getPlayerClaimLimit(p);
-                        int claimUsed = RedProtect.get().getRegionManager().getPlayerRegions(p.getUniqueId().toString(), w.getName());
-                        boolean claimUnlimited = RedProtect.get().getPermissionHandler().hasPerm(p, "redprotect.limits.claim.unlimited");
+                        int claimUsed = RedProtect.get().getRegionManager().getPlayerRegions(p.getUniqueId().toString(),
+                                worldName);
+                        boolean claimUnlimited = RedProtect.get().getPermissionHandler().hasPerm(p,
+                                "redprotect.limits.claim.unlimited");
                         if (claimUsed >= claimLimit && claimLimit >= 0 && !claimUnlimited) {
                             setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.claim.limit"));
                             return;
                         }
 
                         int pLimit = RedProtect.get().getPermissionHandler().getPlayerBlockLimit(p);
-                        boolean areaUnlimited = RedProtect.get().getPermissionHandler().hasPerm(p, "redprotect.limits.blocks.unlimited");
-                        int totalArea = RedProtect.get().getRegionManager().getTotalRegionSize(pName, p.getWorld().getName());
-                        int regionArea = RedProtect.get().getUtil().simuleTotalRegionSize(p.getUniqueId().toString(), newRegion);
+                        boolean areaUnlimited = RedProtect.get().getPermissionHandler().hasPerm(p,
+                                "redprotect.limits.blocks.unlimited");
+                        int totalArea = RedProtect.get().getRegionManager().getTotalRegionSize(pName, worldName);
+                        int regionArea = RedProtect.get().getUtil().simuleTotalRegionSize(p.getUniqueId().toString(),
+                                newRegion);
                         int actualArea = 0;
                         if (regionArea > 0) {
                             actualArea = totalArea + regionArea;
@@ -246,104 +242,183 @@ public class EncompassRegionBuilder extends RegionBuilder {
                             return;
                         }
 
-                        long reco = 0;
-                        if (RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.enable && RedProtect.get().hooks.checkVault() && !p.hasPermission("redprotect.eco.bypass")) {
-                            double peco = RedProtect.get().economy.getBalance(p);
-                            reco = (long) newRegion.getArea() * RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.cost_per_block;
+                        boolean chargeEconomy = RedProtect.get().getConfigManager()
+                                .ecoRoot().claim_cost_per_block.enable
+                                && RedProtect.get().hooks.checkVault()
+                                && !p.hasPermission("redprotect.eco.bypass");
+                        long reco = chargeEconomy
+                                ? RegionCreationSupport.calculateCreateCost(
+                                        newRegion.getArea(),
+                                        newRegion.getMinY(),
+                                        newRegion.getMaxY(),
+                                        RedProtect.get().getConfigManager()
+                                                .ecoRoot().claim_cost_per_block.cost_per_block,
+                                        RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.y_is_free)
+                                : 0L;
 
-                            if (!RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.y_is_free) {
-                                reco = reco * Math.abs(newRegion.getMaxY() - newRegion.getMinY());
+                        boolean firstClaimWarning = RedProtect.get().getRegionManager()
+                                .getRegions(p.getUniqueId().toString(), worldName).isEmpty();
+                        Region candidateRegion = newRegion;
+                        Region committedRegion = callSync(() -> {
+                            if (RedProtect.get().getRegionManager().getRegion(candidateRegion.getName(),
+                                    worldName) != null) {
+                                setErrorSign(e,
+                                        RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping")
+                                                .replace("{location}",
+                                                        "x: " + candidateRegion.getCenterX() + ", z: "
+                                                                + candidateRegion.getCenterZ())
+                                                .replace("{player}", candidateRegion.getLeadersDesc()));
+                                return null;
+                            }
+                            if (chargeEconomy && reco > 0) {
+                                double peco = RedProtect.get().economy.getBalance(p);
+                                if (peco < reco) {
+                                    setErrorSign(e,
+                                            RedProtect.get().getLanguageManager().get("regionbuilder.notenought.money")
+                                                    .replace("{price}",
+                                                            RedProtect.get().getConfigManager().ecoRoot().economy_symbol
+                                                                    + reco));
+                                    return null;
+                                }
                             }
 
-                            if (peco >= reco) {
-                                RedProtect.get().economy.withdrawPlayer(p, reco);
-                                p.sendMessage(RedProtect.get().getLanguageManager().get("economy.region.claimed").replace("{price}", RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco + " " + RedProtect.get().getConfigManager().ecoRoot().economy_name));
-                            } else {
-                                setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.notenought.money").replace("{price}", RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco));
-                                return;
+                            CreateRegionEvent event = new CreateRegionEvent(candidateRegion, p);
+                            Bukkit.getPluginManager().callEvent(event);
+                            if (event.isCancelled()) {
+                                return null;
                             }
-                        }
 
-                        //fire event
-                        CreateRegionEvent event = new CreateRegionEvent(newRegion, p);
-                        try {
-                            CreateRegionEvent finalEvent = event;
-                            event = Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
-                                Bukkit.getPluginManager().callEvent(finalEvent);
-                                return finalEvent;
-                            }).get();
-                        } catch (InterruptedException | ExecutionException interruptedException) {
-                            interruptedException.printStackTrace();
-                        }
-                        if (event.isCancelled()) {
+                            Region finalRegion = event.getRegion();
+                            if (finalRegion == null) {
+                                return null;
+                            }
+
+                            if (chargeEconomy && reco > 0) {
+                                EconomyResponse resp = RedProtect.get().economy.withdrawPlayer(p, reco);
+                                if (resp == null || !resp.transactionSuccess()) {
+                                    setErrorSign(e,
+                                            RedProtect.get().getLanguageManager().get("regionbuilder.notenought.money")
+                                                    .replace("{price}",
+                                                            RedProtect.get().getConfigManager().ecoRoot().economy_symbol
+                                                                    + reco));
+                                    return null;
+                                }
+                                if (p.isOnline()) {
+                                    p.sendMessage(RedProtect.get().getLanguageManager().get("economy.region.claimed")
+                                            .replace("{price}",
+                                                    RedProtect.get().getConfigManager().ecoRoot().economy_symbol + reco
+                                                            + " " + RedProtect.get().getConfigManager()
+                                                                    .ecoRoot().economy_name));
+                                }
+                            }
+
+                            RedProtect.get().getRegionManager().add(finalRegion, worldName);
+                            this.committed = true;
+                            return finalRegion;
+                        });
+
+                        if (committedRegion == null) {
                             return;
                         }
+                        newRegion = committedRegion;
 
-                        newRegion = event.getRegion();
-
-                        p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "------------------------------------");
-                        p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.claim.left") + (claimUsed + 1) + RedProtect.get().getLanguageManager().get("general.color") + "/" + (claimUnlimited ? RedProtect.get().getLanguageManager().get("regionbuilder.area.unlimited") : claimLimit));
-                        p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.area.used") + " " + (regionArea == 0 ? ChatColor.GREEN + "" + regionArea : ChatColor.RED + "- " + regionArea) + "\n" +
-                                RedProtect.get().getLanguageManager().get("regionbuilder.area.left") + " " + (areaUnlimited ? RedProtect.get().getLanguageManager().get("regionbuilder.area.unlimited") : (pLimit - actualArea)));
-                        p.sendMessage(RedProtect.get().getLanguageManager().get("cmdmanager.region.priority.set").replace("{region}", newRegion.getName()) + " " + newRegion.getPrior());
-                        if (RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.enable)
-                            p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.block.cost") + reco);
-                        p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "------------------------------------");
-                        if (!othersName.isEmpty()) {
-                            p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.overlapping"));
-                            p.sendMessage(RedProtect.get().getLanguageManager().get("region.regions") + " " + othersName);
-                            p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "------------------------------------");
+                        if (p.isOnline()) {
+                            p.sendMessage(RedProtect.get().getLanguageManager().get("general.color")
+                                    + "------------------------------------");
+                            p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.claim.left")
+                                    + (claimUsed + 1) + RedProtect.get().getLanguageManager().get("general.color") + "/"
+                                    + (claimUnlimited
+                                            ? RedProtect.get().getLanguageManager().get("regionbuilder.area.unlimited")
+                                            : claimLimit));
+                            p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.area.used") + " "
+                                    + (regionArea == 0 ? ChatColor.GREEN + "" + regionArea
+                                            : ChatColor.RED + "- " + regionArea)
+                                    + "\n" +
+                                    RedProtect.get().getLanguageManager().get("regionbuilder.area.left") + " "
+                                    + (areaUnlimited
+                                            ? RedProtect.get().getLanguageManager().get("regionbuilder.area.unlimited")
+                                            : (pLimit - actualArea)));
+                            p.sendMessage(RedProtect.get().getLanguageManager().get("cmdmanager.region.priority.set")
+                                    .replace("{region}", newRegion.getName()) + " " + newRegion.getPrior());
+                            if (RedProtect.get().getConfigManager().ecoRoot().claim_cost_per_block.enable)
+                                p.sendMessage(
+                                        RedProtect.get().getLanguageManager().get("regionbuilder.block.cost") + reco);
+                            p.sendMessage(RedProtect.get().getLanguageManager().get("general.color")
+                                    + "------------------------------------");
+                            if (!othersName.isEmpty()) {
+                                p.sendMessage(RedProtect.get().getLanguageManager().get("regionbuilder.overlapping"));
+                                p.sendMessage(
+                                        RedProtect.get().getLanguageManager().get("region.regions") + " " + othersName);
+                                p.sendMessage(RedProtect.get().getLanguageManager().get("general.color")
+                                        + "------------------------------------");
+                            }
                         }
 
-                        //Drop types
-                        Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
-                            if (owner2 != null && RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.allow_player_decide && RedProtect.get().getLanguageManager().containsValue(owner2)) {
-                                if (owner2.equalsIgnoreCase(RedProtect.get().getLanguageManager().get("region.mode.drop"))) {
+                        // Drop types
+                        Region weRegion = newRegion;
+                        callSync(() -> {
+                            if (owner2 != null
+                                    && RedProtect.get().getConfigManager()
+                                            .configRoot().region_settings.claim.modes.allow_player_decide
+                                    && RedProtect.get().getLanguageManager().containsValue(owner2)) {
+                                if (owner2.equalsIgnoreCase(
+                                        RedProtect.get().getLanguageManager().get("region.mode.drop"))) {
                                     drop(b, blocks);
                                     RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.region.droped");
                                 }
-                                if (owner2.equalsIgnoreCase(RedProtect.get().getLanguageManager().get("region.mode.remove"))) {
+                                if (owner2.equalsIgnoreCase(
+                                        RedProtect.get().getLanguageManager().get("region.mode.remove"))) {
                                     remove(b, blocks);
-                                    RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.region.removed");
+                                    RedProtect.get().getLanguageManager().sendMessage(p,
+                                            "regionbuilder.region.removed");
                                 }
-                                if (owner2.equalsIgnoreCase(RedProtect.get().getLanguageManager().get("region.mode.give"))) {
+                                if (owner2.equalsIgnoreCase(
+                                        RedProtect.get().getLanguageManager().get("region.mode.give"))) {
                                     give(b, p, blocks);
                                     RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.region.given");
                                 }
                             } else {
-                                if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.mode.equalsIgnoreCase("drop")) {
+                                if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.mode
+                                        .equalsIgnoreCase("drop")) {
                                     drop(b, blocks);
                                 }
-                                if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.mode.equalsIgnoreCase("remove")) {
+                                if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.mode
+                                        .equalsIgnoreCase("remove")) {
                                     remove(b, blocks);
                                 }
-                                if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.mode.equalsIgnoreCase("give")) {
+                                if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.modes.mode
+                                        .equalsIgnoreCase("give")) {
                                     give(b, p, blocks);
                                 }
+                            }
+                            if (RedProtect.get().hooks.checkWe()
+                                    && RedProtect.get().getConfigManager().configRoot().hooks.useWECUI) {
+                                WEHook.setSelectionRP(p, weRegion.getMinLocation(), weRegion.getMaxLocation());
                             }
                             return true;
                         });
 
-                        if (RedProtect.get().getRegionManager().getRegions(p.getUniqueId().toString(), p.getWorld().getName()).isEmpty()) {
+                        if (firstClaimWarning && p.isOnline()) {
                             p.sendMessage(RedProtect.get().getLanguageManager().get("cmdmanager.region.firstwarning"));
-                            p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "------------------------------------");
-                        }
-
-                        //wecui
-                        if (RedProtect.get().hooks.checkWe() && RedProtect.get().getConfigManager().configRoot().hooks.useWECUI) {
-                            WEHook.setSelectionRP(p, newRegion.getMinLocation(), newRegion.getMaxLocation());
+                            p.sendMessage(RedProtect.get().getLanguageManager().get("general.color")
+                                    + "------------------------------------");
                         }
 
                         this.r = newRegion;
-                        RedProtect.get().logger.addLog("(World " + newRegion.getWorld() + ") Player " + p.getName() + " CREATED region " + newRegion.getName());
+                        RedProtect.get().logger.addLog("(World " + newRegion.getWorld() + ") Player " + p.getName()
+                                + " CREATED region " + newRegion.getName());
                         return;
                     }
                 }
             } else if (i == 1 && nearbyCount == 2) {
-                //check other regions on blocks
+                // check other regions on blocks
                 Region rcurrent = RedProtect.get().getRegionManager().getTopRegion(current.getLocation());
                 if (rcurrent != null && !rcurrent.canBuild(p)) {
-                    setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping").replace("{location}", "x: " + rcurrent.getCenterX() + ", z: " + rcurrent.getCenterZ()).replace("{player}", rcurrent.getLeadersDesc()));
+                    setErrorSign(e,
+                            RedProtect.get().getLanguageManager().get("regionbuilder.region.overlapping")
+                                    .replace("{location}",
+                                            "x: " + rcurrent.getCenterX() + ", z: " + rcurrent.getCenterZ())
+                                    .replace("{player}", rcurrent.getLeadersDesc()));
                     return;
                 }
                 blocks.add(current);
@@ -359,22 +434,27 @@ public class EncompassRegionBuilder extends RegionBuilder {
                     pz.add(current.getZ());
                 }
             } else if (i != 0) {
-                setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.area.error").replace("{area}", "(x: " + current.getX() + ", y: " + current.getY() + ", z: " + current.getZ() + ")"));
+                setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.area.error").replace("{area}",
+                        "(x: " + current.getX() + ", y: " + current.getY() + ", z: " + current.getZ() + ")"));
                 Block finalCurrent = current;
-                Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
+                callSync(() -> {
                     Block newb = finalCurrent.getRelative(BlockFace.UP);
                     if (newb.getType().isAir()) {
-                        if (Material.getMaterial("SIGN_POST") != null) {
-                            newb.getState().getBlock().setType(Material.getMaterial("SIGN_POST"));
-                        } else {
-                            newb.getState().getBlock().setType(Arrays.stream(Material.values()).filter(m -> m.name().endsWith("_SIGN")).findFirst().get());
+                        Material signMat = Arrays.stream(Material.values())
+                                .filter(m -> m.name().endsWith("_SIGN") && !m.name().contains("WALL")
+                                        && !m.name().contains("HANGING"))
+                                .findFirst()
+                                .orElse(Material.OAK_SIGN);
+                        newb.setType(signMat);
+                        if (newb.getState() instanceof Sign s) {
+                            s.getSide(org.bukkit.block.sign.Side.FRONT).setLine(0, "§4xxxxxxxxxxxxxx");
+                            s.getSide(org.bukkit.block.sign.Side.FRONT).setLine(1,
+                                    RedProtect.get().getLanguageManager().get("_redprotect.prefix"));
+                            s.getSide(org.bukkit.block.sign.Side.FRONT).setLine(2,
+                                    RedProtect.get().getLanguageManager().get("blocklistener.postsign.error"));
+                            s.getSide(org.bukkit.block.sign.Side.FRONT).setLine(3, "§4xxxxxxxxxxxxxx");
+                            s.update();
                         }
-                        Sign s = (Sign) newb.getState();
-                        s.setLine(0, "§4xxxxxxxxxxxxxx");
-                        s.setLine(1, RedProtect.get().getLanguageManager().get("_redprotect.prefix"));
-                        s.setLine(2, RedProtect.get().getLanguageManager().get("blocklistener.postsign.error"));
-                        s.setLine(3, "§4xxxxxxxxxxxxxx");
-                        s.update();
                     }
                     return true;
                 });
@@ -386,14 +466,16 @@ public class EncompassRegionBuilder extends RegionBuilder {
             }
             last = current;
             if (next == null) {
-                setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.area.next") + " " + RedProtect.get().getConfigManager().configRoot().region_settings.block_id);
+                setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.area.next") + " "
+                        + RedProtect.get().getConfigManager().configRoot().region_settings.block_id);
                 return;
             }
             current = next;
             oldFacing = curFacing;
         }
         String maxsize = String.valueOf(RedProtect.get().getConfigManager().configRoot().region_settings.max_scan);
-        setErrorSign(e, RedProtect.get().getLanguageManager().get("regionbuilder.area.toobig").replace("{maxsize}", maxsize));
+        setErrorSign(e,
+                RedProtect.get().getLanguageManager().get("regionbuilder.area.toobig").replace("{maxsize}", maxsize));
     }
 
     private void drop(Block sign, List<Block> blocks) {
@@ -411,11 +493,15 @@ public class EncompassRegionBuilder extends RegionBuilder {
     }
 
     private void give(Block sign, Player p, List<Block> blocks) {
-        HashMap<Integer, ItemStack> left = p.getInventory().addItem(new ItemStack(Material.getMaterial(RedProtect.get().getConfigManager().configRoot().region_settings.block_id), blocks.size()));
-        if (!left.isEmpty()) {
-            p.getWorld().dropItem(p.getLocation(), new ItemStack(Material.getMaterial(RedProtect.get().getConfigManager().configRoot().region_settings.block_id), left.get(0).getAmount() - 1));
+        Material blockMat = Material
+                .getMaterial(RedProtect.get().getConfigManager().configRoot().region_settings.block_id);
+        if (blockMat != null && blockMat.isItem() && !blocks.isEmpty()) {
+            HashMap<Integer, ItemStack> left = p.getInventory().addItem(new ItemStack(blockMat, blocks.size()));
+            for (ItemStack leftover : left.values()) {
+                p.getWorld().dropItem(p.getLocation(), leftover);
+            }
+            p.updateInventory();
         }
-        p.updateInventory();
         sign.breakNaturally();
         for (Block rb : blocks) {
             rb.setType(Material.AIR);

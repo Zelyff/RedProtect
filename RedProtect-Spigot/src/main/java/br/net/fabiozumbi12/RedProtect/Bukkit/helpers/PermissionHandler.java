@@ -36,6 +36,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PermissionHandler {
 
@@ -139,79 +142,93 @@ public class PermissionHandler {
         return player.hasPermission(perm);
     }
 
+    private static final Pattern TRAILING_INT_PATTERN = Pattern.compile("^(-?\\d+)$");
+
     public int getPurgeLimit(Player player) {
         int limit = RedProtect.get().getConfigManager().configRoot().purge.canpurge_limit;
-        List<Integer> limits = new ArrayList<>();
-        Set<PermissionAttachmentInfo> perms = player.getEffectivePermissions();
-        if (limit > 0) {
-            for (PermissionAttachmentInfo perm : perms) {
-                if (perm.getPermission().startsWith("redprotect.canpurge-limit.")) {
-                    String pStr = perm.getPermission().replaceAll("[^-?0-9]+", "");
-                    if (!pStr.isEmpty()) {
-                        limits.add(Integer.parseInt(pStr));
-                    }
-                }
-            }
+        if (limit < 0) {
+            return -1;
         }
-        if (!limits.isEmpty()) {
-            limit = Collections.max(limits);
-        }
-        return limit;
+        return resolvePermissionNumericLimit(player.getEffectivePermissions(), "redprotect.canpurge-limit.", null, limit);
     }
 
     private int getBlockLimit(Player player) {
         int limit = RedProtect.get().getConfigManager().configRoot().region_settings.limit_amount;
-        List<Integer> limits = new ArrayList<>();
-        Set<PermissionAttachmentInfo> perms = player.getEffectivePermissions();
-        if (limit > 0) {
-            if (!hasVaultPerm(player, "redprotect.limits.blocks.unlimited")) {
-                for (PermissionAttachmentInfo perm : perms) {
-                    if (perm.getPermission().startsWith("redprotect.limits.blocks.")) {
-                        if (RedProtect.get().getConfigManager().configRoot().region_settings.blocklimit_per_world && !hasVaultPerm(player, perm.getPermission()))
-                            continue;
-                        String pStr = perm.getPermission().replaceAll("[^-?0-9]+", "");
-                        if (!pStr.isEmpty()) {
-                            limits.add(Integer.parseInt(pStr));
-                        }
-                    }
-                }
-            } else {
-                return -1;
-            }
+        if (limit < 0 || hasVaultPerm(player, "redprotect.limits.blocks.unlimited")) {
+            return -1;
         }
-        if (!limits.isEmpty()) {
-            limit = Collections.max(limits);
+        boolean perWorld = RedProtect.get().getConfigManager().configRoot().region_settings.blocklimit_per_world;
+        limit = resolvePermissionNumericLimit(
+                player.getEffectivePermissions(),
+                "redprotect.limits.blocks.",
+                perWorld ? permNode -> hasVaultPerm(player, permNode) : null,
+                limit
+        );
+        if (limit < 0) {
+            return -1;
         }
 
-        // Add blocks given by time
-        limit += (int) RedProtect.get().getBlockManager().getBlockLimit(player);
-
-        return limit;
+        // Add blocks given by time (capped safely to prevent integer overflow)
+        long timeBlocks = RedProtect.get().getBlockManager().getBlockLimit(player);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, (long) limit + timeBlocks));
     }
 
     private int getClaimLimit(Player player) {
         int limit = RedProtect.get().getConfigManager().configRoot().region_settings.claim.amount_per_player;
-        List<Integer> limits = new ArrayList<>();
-        Set<PermissionAttachmentInfo> perms = player.getEffectivePermissions();
-        if (limit > 0) {
-            if (!hasVaultPerm(player, "redprotect.limits.claim.unlimited")) {
-                for (PermissionAttachmentInfo perm : perms) {
-                    if (perm.getPermission().startsWith("redprotect.limits.claim.")) {
-                        if (RedProtect.get().getConfigManager().configRoot().region_settings.claim.claimlimit_per_world && !hasVaultPerm(player, perm.getPermission()))
-                            continue;
-                        String pStr = perm.getPermission().replaceAll("[^-?0-9]+", "");
-                        if (!pStr.isEmpty()) {
-                            limits.add(Integer.parseInt(pStr));
-                        }
+        if (limit < 0 || hasVaultPerm(player, "redprotect.limits.claim.unlimited")) {
+            return -1;
+        }
+        boolean perWorld = RedProtect.get().getConfigManager().configRoot().region_settings.claim.claimlimit_per_world;
+        return resolvePermissionNumericLimit(
+                player.getEffectivePermissions(),
+                "redprotect.limits.claim.",
+                perWorld ? permNode -> hasVaultPerm(player, permNode) : null,
+                limit
+        );
+    }
 
+    /**
+     * Resolves the highest granted numeric permission limit matching {@code prefix}, ignoring negated
+     * permissions ({@code perm.getValue() == false}) and treating an explicitly granted {@code -1} as unlimited.
+     */
+    public static int resolvePermissionNumericLimit(
+            Set<PermissionAttachmentInfo> perms,
+            String prefix,
+            Predicate<String> worldFilter,
+            int baseLimit) {
+        if (baseLimit < 0) {
+            return -1;
+        }
+        int limit = baseLimit;
+        List<Integer> limits = new ArrayList<>();
+        if (perms != null) {
+            for (PermissionAttachmentInfo perm : perms) {
+                if (perm == null || !perm.getValue()) {
+                    continue;
+                }
+                String permName = perm.getPermission();
+                if (permName == null || !permName.startsWith(prefix)) {
+                    continue;
+                }
+                if (worldFilter != null && !worldFilter.test(permName)) {
+                    continue;
+                }
+                String suffix = permName.substring(prefix.length());
+                Matcher matcher = TRAILING_INT_PATTERN.matcher(suffix);
+                if (matcher.matches()) {
+                    try {
+                        int parsed = Integer.parseInt(matcher.group(1));
+                        if (parsed < 0) {
+                            return -1;
+                        }
+                        limits.add(parsed);
+                    } catch (NumberFormatException ignored) {
                     }
                 }
-            } else {
-                return -1;
             }
         }
         if (!limits.isEmpty()) {
-            limit = Collections.max(limits);
+            limit = Math.max(limit, Collections.max(limits));
         }
         return limit;
     }

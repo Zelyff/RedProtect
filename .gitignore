@@ -42,3 +42,8 @@ build/
 
 ### IDE Build Folders ###
 bin/
+
+### Internal AI Research & Continuity Docs ###
+AGENTS.md
+docs/
+research/

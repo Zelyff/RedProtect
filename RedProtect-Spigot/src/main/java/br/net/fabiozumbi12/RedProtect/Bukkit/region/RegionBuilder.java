@@ -29,31 +29,71 @@ package br.net.fabiozumbi12.RedProtect.Bukkit.region;
 import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
 import org.bukkit.Bukkit;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
+import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.SignChangeEvent;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 public abstract class RegionBuilder {
 
     protected Region r;
+    protected boolean committed;
 
     public RegionBuilder() {
         this.r = null;
+        this.committed = false;
     }
 
     public boolean ready() {
         return this.r != null;
     }
 
+    public boolean isCommitted() {
+        return this.committed;
+    }
+
     public Region build() {
         return this.r;
     }
 
+    protected <T> T callSync(Callable<T> task) {
+        RedProtect plugin = RedProtect.get();
+        if (plugin == null || !plugin.isEnabled()) {
+            return null;
+        }
+        if (Bukkit.isPrimaryThread()) {
+            try {
+                return task.call();
+            } catch (Exception ex) {
+                plugin.logger.severe("Sync region builder step failed: " + ex.getMessage());
+                ex.printStackTrace();
+                return null;
+            }
+        }
+        try {
+            return Bukkit.getScheduler().callSyncMethod(plugin, task).get();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            plugin.logger.severe("Interrupted waiting for main-thread region builder step");
+            return null;
+        } catch (ExecutionException ex) {
+            plugin.logger.severe("Main-thread region builder step failed: " + ex.getMessage());
+            ex.printStackTrace();
+            return null;
+        }
+    }
+
     protected void setErrorSign(SignChangeEvent e, String error) {
-        Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
-            Sign sign = (Sign) e.getBlock().getState();
-            sign.setLine(0, RedProtect.get().getLanguageManager().get("regionbuilder.signerror"));
-            sign.update();
+        callSync(() -> {
+            BlockState state = e.getBlock().getState();
+            if (state instanceof Sign sign) {
+                sign.getSide(Side.FRONT).setLine(0, RedProtect.get().getLanguageManager().get("regionbuilder.signerror"));
+                sign.update();
+            }
             setError(e.getPlayer(), error);
             return true;
         });

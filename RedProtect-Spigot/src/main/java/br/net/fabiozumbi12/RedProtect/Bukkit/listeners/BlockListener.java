@@ -199,19 +199,22 @@ public class BlockListener implements Listener {
 
             RedProtect.get().getLanguageManager().sendMessage(p, "regionbuilder.creating");
 
-            // Run claim async
-            Sign sign = (Sign) e.getBlock().getState();
-            Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
+            // Run on next main tick so Sign.update() persists outside SignChangeEvent without off-thread chunk reads
+            Bukkit.getScheduler().runTask(RedProtect.get(), () -> {
+                if (!RedProtect.get().isEnabled()) {
+                    return;
+                }
                 RegionBuilder rb = new EncompassRegionBuilder(e);
                 if (rb.ready()) {
                     Region r = rb.build();
-                    Bukkit.getScheduler().callSyncMethod(RedProtect.get(), () -> {
+                    if (e.getBlock().getState() instanceof Sign sign) {
                         sign.getSide(Side.FRONT).setLine(0, RedProtect.get().getLanguageManager().get("blocklistener.region.signcreated"));
                         sign.getSide(Side.FRONT).setLine(1, r.getName());
                         sign.update();
-                        return true;
-                    });
-                    RedProtect.get().getRegionManager().add(r, r.getWorld());
+                    }
+                    if (!rb.isCommitted()) {
+                        RedProtect.get().getRegionManager().add(r, r.getWorld());
+                    }
                 }
             });
         } else if (RedProtect.get().getConfigManager().configRoot().region_settings.enable_flag_sign && line1.equalsIgnoreCase("[flag]") && signr != null) {

@@ -27,6 +27,8 @@
 package br.net.fabiozumbi12.RedProtect.Bukkit;
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.API.RedProtectAPI;
+import br.net.fabiozumbi12.RedProtect.Bukkit.claim.ClaimSessionManager;
+import br.net.fabiozumbi12.RedProtect.Bukkit.claim.GpClaimInteractionHandler;
 import br.net.fabiozumbi12.RedProtect.Bukkit.config.LangGuiManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.config.LangManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.commands.CommandHandler;
@@ -36,9 +38,12 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.*;
 import br.net.fabiozumbi12.RedProtect.Bukkit.listeners.*;
 import br.net.fabiozumbi12.RedProtect.Bukkit.hooks.HooksManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.metrics.Metrics;
+import br.net.fabiozumbi12.RedProtect.Bukkit.preview.GlowOutlineOverlay;
+import br.net.fabiozumbi12.RedProtect.Bukkit.preview.PreviewRenderMode;
+import br.net.fabiozumbi12.RedProtect.Bukkit.preview.PreviewVisualType;
+import br.net.fabiozumbi12.RedProtect.Bukkit.preview.RegionPreviewService;
 import br.net.fabiozumbi12.RedProtect.Bukkit.region.RegionManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.schematics.RPSchematics;
-import br.net.fabiozumbi12.RedProtect.Bukkit.updater.SpigetUpdater;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.LogLevel;
 import net.milkbowl.vault.economy.Economy;
@@ -74,16 +79,30 @@ public class RedProtect extends JavaPlugin {
     private RedProtectAPI redProtectAPI;
     private int autoSaveID;
     private VersionHelper rpvHelper;
-    private SpigetUpdater updater;
     private ModListener modListener;
     private RegionManager rm;
     private PermissionHandler ph;
     private LangManager lang;
     private ConfigManager config;
     private BlockConfig blockConfig;
+    private RegionPreviewService previewService;
+    private ClaimSessionManager claimSessionManager;
+    private GpClaimInteractionHandler gpClaimHandler;
 
     public static RedProtect get() {
         return plugin;
+    }
+
+    public RegionPreviewService getPreviewService() {
+        return this.previewService;
+    }
+
+    public ClaimSessionManager getClaimSessionManager() {
+        return this.claimSessionManager;
+    }
+
+    public GpClaimInteractionHandler getGpClaimHandler() {
+        return this.gpClaimHandler;
     }
 
     public RegionManager getRegionManager() {
@@ -114,10 +133,6 @@ public class RedProtect extends JavaPlugin {
         return redProtectAPI;
     }
 
-    public SpigetUpdater getUpdater() {
-        return this.updater;
-    }
-
     public RedProtectUtil getUtil() {
         return this.redProtectUtil;
     }
@@ -146,7 +161,7 @@ public class RedProtect extends JavaPlugin {
             logger.clear("&4 _   _  _  &c _   _   _  _ _  _  _ _ _  _");
             logger.clear("&4|_| |_ | \\ &c|_| |_| | |  |  |_ |   |  |_|");
             logger.clear("&4| \\ |_ |_/ &c|   | \\ |_|  |  |_ |_  |  |_|");
-            logger.clear("&a» " + getDescription().getFullName() + " enabled");
+            logger.clear("&a» " + getDescription().getFullName() + " &7(Version by &bZelyff&7) &aenabled");
             logger.clear("");
 
             if (config.configRoot().enable_addons){
@@ -180,6 +195,14 @@ public class RedProtect extends JavaPlugin {
     }
 
     public void reloadConfigs() {
+        if (claimSessionManager != null) {
+            claimSessionManager.clearAll();
+        }
+        if (previewService != null) {
+            previewService.clearAll();
+        }
+        br.net.fabiozumbi12.RedProtect.Bukkit.guis.BedrockGuiForms.clearAllTokens();
+        br.net.fabiozumbi12.RedProtect.Bukkit.guis.FlagGui.clearOpenGuis();
         cmdHandler.unregisterAll();
 
         try {
@@ -204,6 +227,17 @@ public class RedProtect extends JavaPlugin {
         config = new ConfigManager();
         lang = new LangManager();
         blockConfig = new BlockConfig();
+        if (claimSessionManager != null) {
+            claimSessionManager.clearAll();
+        }
+        if (previewService != null) {
+            previewService.clearAll();
+        }
+        br.net.fabiozumbi12.RedProtect.Bukkit.guis.BedrockGuiForms.clearAllTokens();
+        br.net.fabiozumbi12.RedProtect.Bukkit.guis.FlagGui.clearOpenGuis();
+        previewService = createPreviewService();
+        claimSessionManager = new ClaimSessionManager();
+        gpClaimHandler = new GpClaimInteractionHandler(this, claimSessionManager);
 
         if (config.configRoot().purge.regen.enabled && config.configRoot().purge.regen.enable_whitelist_regen && Bukkit.getServer().hasWhitelist()) {
             Bukkit.getServer().setWhitelist(false);
@@ -242,15 +276,9 @@ public class RedProtect extends JavaPlugin {
         // Load Gui lang file
         guiLang = new LangGuiManager();
 
-        // Update Manager
-        if (updater != null) {
-            Bukkit.getScheduler().cancelTask(updater.getTaskId());
-            updater = null;
-        }
+        // Update Manager (disabled on custom Zelyff fork to prevent upstream SpigotMC jar overwrite)
         if (config.configRoot().update.enable) {
-            updater = new SpigetUpdater(this);
-            updater.setCurrentJarFile(this.getFile().getName());
-            updater.hourlyUpdateCheck(getServer().getConsoleSender(), config.configRoot().update.enable, false);
+            logger.info("Spiget auto-updater is disabled on this custom build (Version by Zelyff) to prevent overwriting custom features.");
         }
 
         bukkitVersion = getBukkitVersion();
@@ -299,6 +327,15 @@ public class RedProtect extends JavaPlugin {
     }
 
     private void shutDown() {
+        if (claimSessionManager != null) {
+            claimSessionManager.clearAll();
+        }
+        if (previewService != null) {
+            previewService.clearAll();
+        }
+        br.net.fabiozumbi12.RedProtect.Bukkit.guis.BedrockGuiForms.clearAllTokens();
+        br.net.fabiozumbi12.RedProtect.Bukkit.guis.FlagGui.clearOpenGuis();
+
         // Unload messages listener
         if (modListener != null)
             modListener.unload();
@@ -320,7 +357,7 @@ public class RedProtect extends JavaPlugin {
 
         getServer().getScheduler().cancelTasks(this);
 
-        logger.info(getDescription().getFullName() + " turned off...");
+        logger.info(getDescription().getFullName() + " (Version by Zelyff) turned off...");
     }
 
     public boolean denyEnterRegion(String rid, String player) {
@@ -379,5 +416,59 @@ public class RedProtect extends JavaPlugin {
         } else {
             logger.info("Auto-save Scheduler: Disabled");
         }
+    }
+
+    private RegionPreviewService createPreviewService() {
+        return new RegionPreviewService(
+                this,
+                () -> {
+                    var border = getConfigManager().configRoot().region_settings.border;
+                    return new RegionPreviewService.PreviewSettings(
+                            PreviewRenderMode.fromConfig(border.mode, PreviewRenderMode.BLOCK),
+                            border.particle,
+                            border.time_showing,
+                            border.height,
+                            border.intensity,
+                            border.glow_outline,
+                            border.fake_block_step,
+                            border.fake_block_radius,
+                            border.fake_block_max_elements,
+                            border.glow_max_entities,
+                            getConfigManager().configRoot().region_settings.default_leader
+                    );
+                },
+                new RegionPreviewService.SchedulerBridge() {
+                    @Override
+                    public int scheduleRepeating(long delayTicks, long periodTicks, Runnable task) {
+                        return Bukkit.getScheduler().scheduleSyncRepeatingTask(RedProtect.this, task, delayTicks, periodTicks);
+                    }
+
+                    @Override
+                    public int scheduleLater(long delayTicks, Runnable task) {
+                        return Bukkit.getScheduler().runTaskLater(RedProtect.this, task, delayTicks).getTaskId();
+                    }
+
+                    @Override
+                    public void cancelTask(int taskId) {
+                        Bukkit.getScheduler().cancelTask(taskId);
+                    }
+                },
+                new RegionPreviewService.ParticleBridge() {
+                    @Override
+                    public String resolveParticleName(String configuredName) {
+                        return rpvHelper != null && rpvHelper.existParticle(configuredName) ? configuredName : "FLAME";
+                    }
+
+                    @Override
+                    public void spawn(org.bukkit.World world, String particleName, double x, double y, double z) {
+                        if (rpvHelper != null) {
+                            rpvHelper.spawnParticle(world, particleName, x, y, z);
+                        }
+                    }
+                },
+                new GlowOutlineOverlay(),
+                PreviewVisualType::createBlockData,
+                RegionPreviewService::isFloodgatePlayer
+        );
     }
 }

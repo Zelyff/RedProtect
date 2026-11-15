@@ -35,6 +35,7 @@ import net.milkbowl.vault.permission.Permission;
 import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
 import net.sacredlabyrinth.phaed.simpleclans.managers.ClanManager;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.dynmap.DynmapAPI;
@@ -45,6 +46,7 @@ public class HooksManager {
     public DynmapHook dynmapHook;
     public WorldGuardHelper worldGuardHelper;
     public TransAPI transAPI;
+    public boolean floodgate;
 
     public void registerHooksFirst() {
         try {
@@ -171,6 +173,15 @@ public class HooksManager {
                 this.transAPI = new TransAPI();
                 RedProtect.get().logger.info("TranslationAPI found. Hooked.");
             }
+            if (RedProtect.get().getConfigManager().configRoot().hooks.bedrock_gui.enabled) {
+                if (checkFloodgate()) {
+                    this.floodgate = true;
+                    RedProtect.get().logger.info("Floodgate found. Bedrock GUI Forms hooked.");
+                } else {
+                    this.floodgate = false;
+                    RedProtect.get().logger.warning("hooks.bedrock-gui.enabled is true, but Floodgate is not installed or enabled. Falling back to standard Java GUIs.");
+                }
+            }
         } catch (Exception e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();
@@ -195,6 +206,28 @@ public class HooksManager {
     private boolean checkSF4() {
         Plugin pSF = Bukkit.getPluginManager().getPlugin("Slimefun");
         return pSF != null && pSF.isEnabled();
+    }
+
+    public boolean checkFloodgate() {
+        Plugin pFG = Bukkit.getPluginManager().getPlugin("floodgate");
+        return pFG != null && pFG.isEnabled();
+    }
+
+    public boolean isBedrockPlayer(Player player) {
+        if (player == null || !checkFloodgate()) {
+            return false;
+        }
+        try {
+            return org.geysermc.floodgate.api.FloodgateApi.getInstance().isFloodgatePlayer(player.getUniqueId());
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public boolean isBedrockGuiEnabled(Player player) {
+        return RedProtect.get().getConfigManager() != null
+                && RedProtect.get().getConfigManager().configRoot().hooks.bedrock_gui.enabled
+                && isBedrockPlayer(player);
     }
 
     private boolean checkTAPI() {

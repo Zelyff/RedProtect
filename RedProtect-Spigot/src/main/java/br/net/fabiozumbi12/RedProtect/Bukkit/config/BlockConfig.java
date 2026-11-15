@@ -28,11 +28,10 @@ package br.net.fabiozumbi12.RedProtect.Bukkit.config;
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Core.config.Category.BlockCategory;
+import br.net.fabiozumbi12.RedProtect.Core.config.YamlConfigMigrator;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.ConfigurationOptions;
-import ninja.leaping.configurate.commented.CommentedConfigurationNode;
-import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 import org.bukkit.entity.Player;
@@ -45,30 +44,49 @@ import java.util.Date;
 import static com.google.common.reflect.TypeToken.of;
 
 public class BlockConfig {
-    protected final ConfigurationLoader<CommentedConfigurationNode> blockLoader;
+    private static final String HEADER_BLOCK = """
+            +--------------------------------------------------------------------+ #
+            <               RedProtect Block configuration File                  > #
+            <--------------------------------------------------------------------> #
+            <       This is the configuration file, feel free to edit it.        > #
+            <        For more info about cmds and flags, check our Wiki:         > #
+            <         https://github.com/FabioZumbi12/RedProtect/wiki            > #
+            +--------------------------------------------------------------------+ #
+
+            Notes:
+            Lists use YAML sequence syntax (- object1) or [object1, object2]
+            Strings containing the char & always need to be quoted""";
+
+    protected ConfigurationLoader<ConfigurationNode> blockLoader;
+    private File blockFile;
     private ConfigurationNode blockRoot;
     private BlockCategory blockCat;
 
     public BlockConfig() {
-        String headerBlock = """
-                +--------------------------------------------------------------------+ #
-                <               RedProtect Block configuration File                  > #
-                <--------------------------------------------------------------------> #
-                <       This is the configuration file, feel free to edit it.        > #
-                <        For more info about cmds and flags, check our Wiki:         > #
-                <         https://github.com/FabioZumbi12/RedProtect/wiki            > #
-                +--------------------------------------------------------------------+ #
-
-                Notes:
-                Lists are [object1, object2, ...]
-                Strings containing the char & always need to be quoted""";
-        blockLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "blocks.conf")).build();
+        File dataFolder = RedProtect.get().getDataFolder();
         try {
-            blockRoot = blockLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerBlock));
+            YamlConfigMigrator.MigrationResult result = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "blocks",
+                    HEADER_BLOCK,
+                    BlockCategory.class,
+                    msg -> RedProtect.get().logger.info(msg),
+                    msg -> RedProtect.get().logger.warning(msg),
+                    msg -> RedProtect.get().logger.severe(msg)
+            );
+            this.blockFile = result.targetFile();
+            this.blockLoader = YamlConfigMigrator.createYamlLoader(this.blockFile);
+            blockRoot = blockLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true));
             this.blockCat = blockRoot.getValue(of(BlockCategory.class), new BlockCategory());
+            if (this.blockCat == null) {
+                this.blockCat = new BlockCategory();
+            }
             saveConfig();
         } catch (Exception e) {
             e.printStackTrace();
+            if (this.blockCat == null) {
+                this.blockCat = new BlockCategory();
+            }
         }
     }
 
@@ -114,6 +132,9 @@ public class BlockConfig {
     }
 
     public void addPlayer(Player player) {
+        if (this.blockCat == null) {
+            return;
+        }
         if (!this.blockCat.players.containsKey(player.getUniqueId().toString())) {
             this.blockCat.players.put(player.getUniqueId().toString(), new BlockCategory.PlayerCat(Calendar.getInstance().getTime().getTime(), player.getName()));
             saveConfig();
@@ -121,6 +142,9 @@ public class BlockConfig {
     }
 
     public void setBlock(long amount, Player player) {
+        if (this.blockCat == null) {
+            return;
+        }
         if (!this.blockCat.players.containsKey(player.getUniqueId().toString())) {
             addPlayer(player);
         }
@@ -129,6 +153,9 @@ public class BlockConfig {
     }
 
     public long delBlock(long amount, Player player) {
+        if (this.blockCat == null) {
+            return 0;
+        }
         if (!this.blockCat.players.containsKey(player.getUniqueId().toString())) {
             addPlayer(player);
         }
@@ -142,6 +169,9 @@ public class BlockConfig {
     }
 
     public long addBlock(long amount, Player player) {
+        if (this.blockCat == null) {
+            return 0;
+        }
         if (!this.blockCat.players.containsKey(player.getUniqueId().toString())) {
             addPlayer(player);
         }
@@ -151,13 +181,16 @@ public class BlockConfig {
     }
 
     public boolean isEnabled() {
-        return this.blockCat.enabled;
+        return this.blockCat != null && this.blockCat.enabled;
     }
 
     private void saveConfig() {
         try {
+            if (blockFile == null || blockCat == null) {
+                return;
+            }
             blockRoot.setValue(of(BlockCategory.class), blockCat);
-            blockLoader.save(blockRoot);
+            YamlConfigMigrator.saveYamlWithComments(blockFile, blockRoot, HEADER_BLOCK, BlockCategory.class);
         } catch (IOException | ObjectMappingException e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();

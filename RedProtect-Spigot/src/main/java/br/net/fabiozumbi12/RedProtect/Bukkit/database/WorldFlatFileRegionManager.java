@@ -33,6 +33,7 @@ import br.net.fabiozumbi12.RedProtect.Core.helpers.LogLevel;
 import br.net.fabiozumbi12.RedProtect.Core.region.PlayerRegion;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -40,16 +41,17 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class WorldFlatFileRegionManager implements WorldRegionManager {
 
-    private final HashMap<String, Region> regions;
+    private final Map<String, Region> regions;
     private final String world;
 
     public WorldFlatFileRegionManager(String world) {
         super();
-        this.regions = new HashMap<>();
+        this.regions = new ConcurrentHashMap<>();
         this.world = world;
     }
 
@@ -80,11 +82,14 @@ public class WorldFlatFileRegionManager implements WorldRegionManager {
             int maxZ = fileDB.getInt(rname + ".maxZ");
             int minX = fileDB.getInt(rname + ".minX");
             int minZ = fileDB.getInt(rname + ".minZ");
-            int maxY = fileDB.getInt(rname + ".maxY", Bukkit.getWorld(world).getMaxHeight());
-            int minY = fileDB.getInt(rname + ".minY", Bukkit.getWorld(world).getMaxHeight());
+            World loadedWorld = Bukkit.getWorld(world);
+            int defaultMaxY = loadedWorld != null ? loadedWorld.getMaxHeight() : 320;
+            int defaultMinY = loadedWorld != null ? loadedWorld.getMinHeight() : -64;
+            int maxY = fileDB.getInt(rname + ".maxY", defaultMaxY);
+            int minY = fileDB.getInt(rname + ".minY", defaultMinY);
 
             if (minY == 0 && RedProtect.get().getConfigManager().configRoot().region_settings.convert_zeros_y)
-                minY = Bukkit.getWorld(world).getMinHeight();
+                minY = defaultMinY;
 
             String name = fileDB.getString(rname + ".name");
             String serverName = RedProtect.get().getConfigManager().configRoot().region_settings.default_leader;
@@ -402,70 +407,17 @@ public class WorldFlatFileRegionManager implements WorldRegionManager {
 
     @Override
     public Region getTopRegion(int x, int y, int z) {
-        Map<Integer, Region> regionlist = new HashMap<>();
-        int max = 0;
-        for (Region r : regions.values()) {
-            if (x <= r.getMaxMbrX() && x >= r.getMinMbrX() && y <= r.getMaxY() && y >= r.getMinY() && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ()) {
-                if (regionlist.containsKey(r.getPrior())) {
-                    Region reg1 = regionlist.get(r.getPrior());
-                    int Prior = r.getPrior();
-                    if (reg1.getArea() >= r.getArea()) {
-                        r.setPrior(Prior + 1);
-                    } else {
-                        reg1.setPrior(Prior + 1);
-                    }
-                }
-                regionlist.put(r.getPrior(), r);
-            }
-        }
-        if (!regionlist.isEmpty()) {
-            max = Collections.max(regionlist.keySet());
-        }
-        return regionlist.get(max);
+        return WorldRegionManager.selectTopRegion(regions.values(), x, y, z);
     }
 
     @Override
     public Region getLowRegion(int x, int y, int z) {
-        Map<Integer, Region> regionlist = new HashMap<>();
-        int min = 0;
-        for (Region r : regions.values()) {
-            if (x <= r.getMaxMbrX() && x >= r.getMinMbrX() && y <= r.getMaxY() && y >= r.getMinY() && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ()) {
-                if (regionlist.containsKey(r.getPrior())) {
-                    Region reg1 = regionlist.get(r.getPrior());
-                    int Prior = r.getPrior();
-                    if (reg1.getArea() >= r.getArea()) {
-                        r.setPrior(Prior + 1);
-                    } else {
-                        reg1.setPrior(Prior + 1);
-                    }
-                }
-                regionlist.put(r.getPrior(), r);
-            }
-        }
-        if (!regionlist.isEmpty()) {
-            min = Collections.min(regionlist.keySet());
-        }
-        return regionlist.get(min);
+        return WorldRegionManager.selectLowRegion(regions.values(), x, y, z);
     }
 
     @Override
     public Map<Integer, Region> getGroupRegion(int x, int y, int z) {
-        Map<Integer, Region> regionlist = new HashMap<>();
-        for (Region r : regions.values()) {
-            if (x <= r.getMaxMbrX() && x >= r.getMinMbrX() && y <= r.getMaxY() && y >= r.getMinY() && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ()) {
-                if (regionlist.containsKey(r.getPrior())) {
-                    Region reg1 = regionlist.get(r.getPrior());
-                    int Prior = r.getPrior();
-                    if (reg1.getArea() >= r.getArea()) {
-                        r.setPrior(Prior + 1);
-                    } else {
-                        reg1.setPrior(Prior + 1);
-                    }
-                }
-                regionlist.put(r.getPrior(), r);
-            }
-        }
-        return regionlist;
+        return WorldRegionManager.buildGroupRegionMap(regions.values(), x, y, z);
     }
 
     @Override

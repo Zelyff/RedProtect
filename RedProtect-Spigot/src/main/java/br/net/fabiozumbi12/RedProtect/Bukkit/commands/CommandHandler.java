@@ -34,7 +34,6 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.AddonsManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.MojangUUIDs;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.WorldGuardHelper;
 import br.net.fabiozumbi12.RedProtect.Bukkit.hooks.WEHook;
-import br.net.fabiozumbi12.RedProtect.Bukkit.updater.SpigetUpdater;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.Replacer;
 import br.net.fabiozumbi12.RedProtect.Core.region.PlayerRegion;
@@ -303,7 +302,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
                 return;
             }
 
-            List<String> conditions = RedProtect.get().getConfigManager().configRoot().command_confirm;
+            List<String> conditions = new ArrayList<>(RedProtect.get().getConfigManager().configRoot().command_confirm);
             conditions.addAll(Arrays.asList(CommandHandlers.getCmd("yes"), CommandHandlers.getCmd("no")));
 
             if (conditions.stream().anyMatch(cmd -> CommandHandlers.checkCmd(args[1], cmd))) {
@@ -350,6 +349,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length > 0 && hasCommand(args[0])) {
+            if (!RedProtect.get().getPermissionHandler().hasCommandPerm(sender, getCmdFromAlias(args[0]))) {
+                RedProtect.get().getLanguageManager().sendMessage(sender, "no.permission");
+                return true;
+            }
             CommandExecutor executor = this.getCommandSubCommand(args[0]);
             return executor.onCommand(sender, command, label, Arrays_copyOfRange(args, args.length));
         } else {
@@ -370,16 +373,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
                 }
 
                 if (args[0].equalsIgnoreCase("update")) {
-                    if (plugin.getUpdater() == null) {
-                        plugin.getLanguageManager().sendMessage(sender, "&aPlugin updates is disabled on config.");
-                        return true;
-                    }
-                    if (plugin.getUpdater().getUpdateAvailable() == SpigetUpdater.UpdateStatus.AVAILABLE)
-                        plugin.getUpdater().downloadAndUpdateJar(sender);
-                    else if (plugin.getUpdater().getUpdateAvailable() == SpigetUpdater.UpdateStatus.RESTART_NEEDED)
-                        plugin.getLanguageManager().sendMessage(sender, "&aPlugin updated. Restart server to complete the update.");
-                    else
-                        plugin.getUpdater().checkForUpdate(sender, false);
+                    plugin.getLanguageManager().sendMessage(sender, "&bYou are running &6" + plugin.getDescription().getFullName() + " &7(Version by &bZelyff&7)&b. Upstream SpigotMC auto-update is disabled to protect custom fork features.");
                     return true;
                 }
 
@@ -526,12 +520,13 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
                         RedProtect.get().logger.success("The plugin GriefPrevention is not installed or is disabled");
                         return true;
                     }
-                    if (RedProtect.get().getUtil().convertFromGP() == 0) {
+                    int converted = RedProtect.get().getUtil().convertFromGP();
+                    if (converted == 0) {
                         RedProtect.get().logger.severe("No region converted from GriefPrevention.");
                         return true;
                     } else {
                         RedProtect.get().getRegionManager().saveAll(true);
-                        RedProtect.get().logger.info(ChatColor.AQUA + "[" + RedProtect.get().getUtil().convertFromGP() + "] regions converted from GriefPrevention with success");
+                        RedProtect.get().logger.info(ChatColor.AQUA + "[" + converted + "] regions converted from GriefPrevention with success");
                         RedProtect.get().getServer().getPluginManager().disablePlugin(RedProtect.get());
                         RedProtect.get().getServer().getPluginManager().enablePlugin(RedProtect.get());
                         return true;
@@ -728,22 +723,29 @@ public class CommandHandler implements CommandExecutor, TabCompleter, Listener {
                 }
 
                 if (args[0].equalsIgnoreCase("setconfig")) {
-                    if (args[1].equals("debug-messages") ||
-                            args[1].equals("file-type") ||
-                            args[1].equals("language")) {
-                        Object from = RedProtect.get().getConfig().get(args[1]);
-                        if (args[2].equals("true") || args[2].equals("false")) {
-                            RedProtect.get().getConfig().set(args[1], Boolean.parseBoolean(args[2]));
-                        } else {
-                            try {
-                                int value = Integer.parseInt(args[2]);
-                                RedProtect.get().getConfig().set(args[1], value);
-                            } catch (NumberFormatException ex) {
-                                RedProtect.get().getConfig().set(args[1], args[2]);
+                    if (args[1].equalsIgnoreCase("debug-messages") ||
+                            args[1].equalsIgnoreCase("file-type") ||
+                            args[1].equalsIgnoreCase("language")) {
+                        Object from;
+                        if (args[1].equalsIgnoreCase("debug-messages")) {
+                            boolean parsed = Boolean.parseBoolean(args[2]);
+                            if (!args[2].equalsIgnoreCase("true") && !args[2].equalsIgnoreCase("false")) {
+                                RedProtect.get().getLanguageManager().sendMessage(sender, RedProtect.get().getLanguageManager().get("cmdmanager.confignotset") + " " + args[1]);
+                                return true;
                             }
+                            from = new java.util.LinkedHashMap<>(RedProtect.get().getConfigManager().configRoot().debug_messages);
+                            for (String debugKey : RedProtect.get().getConfigManager().configRoot().debug_messages.keySet()) {
+                                RedProtect.get().getConfigManager().configRoot().debug_messages.put(debugKey, parsed);
+                            }
+                        } else if (args[1].equalsIgnoreCase("file-type")) {
+                            from = RedProtect.get().getConfigManager().configRoot().file_type;
+                            RedProtect.get().getConfigManager().configRoot().file_type = args[2];
+                        } else {
+                            from = RedProtect.get().getConfigManager().configRoot().language;
+                            RedProtect.get().getConfigManager().configRoot().language = args[2];
                         }
-                        RedProtect.get().getLanguageManager().sendMessage(sender, RedProtect.get().getLanguageManager().get("cmdmanager.configset") + " " + from.toString() + " > " + args[2]);
                         RedProtect.get().getConfigManager().save();
+                        RedProtect.get().getLanguageManager().sendMessage(sender, RedProtect.get().getLanguageManager().get("cmdmanager.configset") + " " + String.valueOf(from) + " > " + args[2]);
                         return true;
                     } else {
                         RedProtect.get().getLanguageManager().sendMessage(sender, RedProtect.get().getLanguageManager().get("cmdmanager.confignotset") + " " + args[1]);

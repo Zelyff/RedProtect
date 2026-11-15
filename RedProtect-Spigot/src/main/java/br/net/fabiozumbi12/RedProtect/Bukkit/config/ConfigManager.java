@@ -30,14 +30,12 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.MobTextures;
 import br.net.fabiozumbi12.RedProtect.Core.config.Category.*;
 import br.net.fabiozumbi12.RedProtect.Core.config.CoreConfigManager;
+import br.net.fabiozumbi12.RedProtect.Core.config.YamlConfigMigrator;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.LogLevel;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.ConfigurationOptions;
-import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
-import ninja.leaping.configurate.loader.ConfigurationLoader;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
-import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
@@ -57,19 +55,21 @@ public class ConfigManager extends CoreConfigManager {
     public ConfigManager() throws ObjectMappingException {
         super(RedProtect.get().getDataFolder());
 
+        File dataFolder = RedProtect.get().getDataFolder();
         try {
 
             /*--------------------- config.yml ---------------------------*/
-            cfgLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "config.conf")).build();
-
-            if (new File(RedProtect.get().getDataFolder(), "config.yml").exists()) {
-                File defConfig = new File(RedProtect.get().getDataFolder(), "config.yml");
-                ConfigurationLoader<ConfigurationNode> cfgLoader = YAMLConfigurationLoader.builder().setFile(defConfig).build();
-                configRoot = cfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerCfg));
-                defConfig.renameTo(new File(RedProtect.get().getDataFolder(), "config_BKP.yml"));
-            } else {
-                configRoot = cfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerCfg));
-            }
+            configFile = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "config",
+                    headerCfg,
+                    MainCategory.class,
+                    RedProtect.get().logger::info,
+                    RedProtect.get().logger::warning,
+                    RedProtect.get().logger::severe
+            ).targetFile();
+            cfgLoader = YamlConfigMigrator.createYamlLoader(configFile);
+            configRoot = cfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true));
             this.root = configRoot.getValue(of(MainCategory.class), new MainCategory(Bukkit.getOnlineMode()));
 
             if (!configRoot.getNode("region-settings", "border", "material").isVirtual()) {
@@ -143,33 +143,44 @@ public class ConfigManager extends CoreConfigManager {
             }
 
             /*--------------------- end config.yml ---------------------------*/
-            gFlagsLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "globalflags.conf")).build();
-
-            if (new File(RedProtect.get().getDataFolder(), "globalflags.yml").exists()) {
-                File gFlagsConfig = new File(RedProtect.get().getDataFolder(), "globalflags.yml");
-                ConfigurationLoader<ConfigurationNode> gFlagsLoader = YAMLConfigurationLoader.builder().setFile(gFlagsConfig).build();
-                gflagsRoot = gFlagsLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGf));
-                gFlagsConfig.renameTo(new File(RedProtect.get().getDataFolder(), "globalflags_BKP.yml"));
-            } else {
-                gflagsRoot = gFlagsLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGf));
-            }
+            gFlagsFile = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "globalflags",
+                    headerGf,
+                    GlobalFlagsCategory.class,
+                    RedProtect.get().logger::info,
+                    RedProtect.get().logger::warning,
+                    RedProtect.get().logger::severe
+            ).targetFile();
+            gFlagsLoader = YamlConfigMigrator.createYamlLoader(gFlagsFile);
+            gflagsRoot = gFlagsLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true));
             this.globalFlagsRoot = gflagsRoot.getValue(of(GlobalFlagsCategory.class), new GlobalFlagsCategory());
 
             /*--------------------- guiconfig.yml ---------------------------*/
             String guiFileName = "guiconfig" + configRoot().language + ".conf";
-            if (new File(RedProtect.get().getDataFolder(), guiFileName).exists()) {
-                new File(RedProtect.get().getDataFolder(), guiFileName).renameTo(new File(RedProtect.get().getDataFolder(), "guiconfig.conf"));
+            File legacyLangGuiConf = new File(dataFolder, guiFileName);
+            File canonicalGuiConf = new File(dataFolder, "guiconfig.conf");
+            File canonicalGuiYml = new File(dataFolder, "guiconfig.yml");
+            if (!canonicalGuiYml.exists() && !canonicalGuiConf.exists() && legacyLangGuiConf.exists()) {
+                try {
+                    YamlConfigMigrator.validateHoconFile(legacyLangGuiConf.toPath());
+                    java.nio.file.Files.copy(legacyLangGuiConf.toPath(), canonicalGuiConf.toPath());
+                    java.nio.file.Files.copy(legacyLangGuiConf.toPath(), dataFolder.toPath().resolve(guiFileName + ".bak"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException parseEx) {
+                    RedProtect.get().logger.severe("Failed to parse legacy GUI config " + guiFileName + ": " + parseEx.getMessage() + ". Original file preserved untouched.");
+                }
             }
-            guiCfgLoader = HoconConfigurationLoader.builder().setFile(new File(RedProtect.get().getDataFolder(), "guiconfig.conf")).build();
-
-            if (new File(RedProtect.get().getDataFolder(), "guiconfig.yml").exists()) {
-                File guiOldCfg = new File(RedProtect.get().getDataFolder(), "guiconfig.yml");
-                ConfigurationLoader<ConfigurationNode> guiLoader = YAMLConfigurationLoader.builder().setFile(guiOldCfg).build();
-                guiCfgRoot = guiLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGui));
-                guiOldCfg.renameTo(new File(RedProtect.get().getDataFolder(), "guiconfig_BKP.yml"));
-            } else {
-                guiCfgRoot = guiCfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerGui));
-            }
+            guiFile = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "guiconfig",
+                    headerGui,
+                    FlagGuiCategory.class,
+                    RedProtect.get().logger::info,
+                    RedProtect.get().logger::warning,
+                    RedProtect.get().logger::severe
+            ).targetFile();
+            guiCfgLoader = YamlConfigMigrator.createYamlLoader(guiFile);
+            guiCfgRoot = guiCfgLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true));
             this.guiRoot = guiCfgRoot.getValue(of(FlagGuiCategory.class), new FlagGuiCategory());
 
             // Import old gui translations
@@ -200,18 +211,22 @@ public class ConfigManager extends CoreConfigManager {
             }
 
             /*------------------- Economy File -------------------*/
-            ecoLoader = HoconConfigurationLoader.builder().setPath(new File(RedProtect.get().getDataFolder(), "economy.conf").toPath()).build();
-            if (new File(RedProtect.get().getDataFolder(), "economy.yml").exists()) {
-                File ecoConfig = new File(RedProtect.get().getDataFolder(), "economy.yml");
-                ConfigurationLoader<ConfigurationNode> ecoLoader = YAMLConfigurationLoader.builder().setPath(ecoConfig.toPath()).build();
-                ecoCfgRoot = ecoLoader.load();
-                ecoConfig.renameTo(new File(RedProtect.get().getDataFolder(), "economy_BKP.yml"));
-            } else {
-                if (!new File(RedProtect.get().getDataFolder(), "economy.conf").exists()) {
-                    RedProtect.get().saveResource("economy.conf", false);
-                }
-                ecoCfgRoot = ecoLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerEco));
+            File ecoConf = new File(dataFolder, "economy.conf");
+            File ecoYml = new File(dataFolder, "economy.yml");
+            if (!ecoConf.exists() && !ecoYml.exists()) {
+                RedProtect.get().saveResource("economy.yml", false);
             }
+            ecoFile = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "economy",
+                    headerEco,
+                    EconomyCategory.class,
+                    RedProtect.get().logger::info,
+                    RedProtect.get().logger::warning,
+                    RedProtect.get().logger::severe
+            ).targetFile();
+            ecoLoader = YamlConfigMigrator.createYamlLoader(ecoFile);
+            ecoCfgRoot = ecoLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true));
             this.ecoRoot = ecoCfgRoot.getValue(of(EconomyCategory.class), new EconomyCategory());
 
             if (ecoRoot.items.values.size() < Material.values().length) {
@@ -230,8 +245,17 @@ public class ConfigManager extends CoreConfigManager {
             }
 
             /* ----------------- Head textures config file -----------------*/
-            headTextLoader = HoconConfigurationLoader.builder().setPath(new File(RedProtect.get().getDataFolder(), "textures.conf").toPath()).build();
-            headTextCfgRoot = headTextLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true).setHeader(headerHeadtext));
+            headTextFile = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "textures",
+                    headerHeadtext,
+                    HeadTexturesCategory.class,
+                    RedProtect.get().logger::info,
+                    RedProtect.get().logger::warning,
+                    RedProtect.get().logger::severe
+            ).targetFile();
+            headTextLoader = YamlConfigMigrator.createYamlLoader(headTextFile);
+            headTextCfgRoot = headTextLoader.load(ConfigurationOptions.defaults().setShouldCopyDefaults(true));
             this.headTextRoot = headTextCfgRoot.getValue(of(HeadTexturesCategory.class), new HeadTexturesCategory());
 
             Registry.ENTITY_TYPE.stream().forEach(e -> {
@@ -241,18 +265,21 @@ public class ConfigManager extends CoreConfigManager {
             saveHeadTextures();
 
             /* ----------------- Signs file ----------------- */
-            signsLoader = HoconConfigurationLoader.builder().setPath(new File(RedProtect.get().getDataFolder(), "signs.conf").toPath()).build();
-            if (new File(RedProtect.get().getDataFolder(), "signs.yml").exists()) {
-                File signFile = new File(RedProtect.get().getDataFolder(), "signs.yml");
-                ConfigurationLoader<ConfigurationNode> signsLoader = YAMLConfigurationLoader.builder().setPath(signFile.toPath()).build();
-                signCfgs = signsLoader.load();
-                signFile.renameTo(new File(RedProtect.get().getDataFolder(), "signs_BKP.yml"));
-            } else {
-                signCfgs = signsLoader.load();
-            }
+            signsFile = YamlConfigMigrator.resolveAndMigrate(
+                    dataFolder,
+                    "signs",
+                    null,
+                    null,
+                    RedProtect.get().logger::info,
+                    RedProtect.get().logger::warning,
+                    RedProtect.get().logger::severe
+            ).targetFile();
+            signsLoader = YamlConfigMigrator.createYamlLoader(signsFile);
+            signCfgs = signsLoader.load();
         } catch (IOException e1) {
-            RedProtect.get().logger.severe("The default configuration could not be loaded or created!");
+            RedProtect.get().logger.severe("The configuration could not be loaded, migrated, or created!");
             e1.printStackTrace();
+            throw new IllegalStateException("Configuration migration/loading failed", e1);
         }
 
         RedProtect.get().logger.info("Server version: " + Bukkit.getServer().getBukkitVersion());
@@ -466,12 +493,16 @@ public class ConfigManager extends CoreConfigManager {
                 switch (w.getEnvironment()) {
                     case NORMAL:
                         root.region_settings.world_colors.put(w.getName(), "&a&l");
+                        break;
                     case NETHER:
                         root.region_settings.world_colors.put(w.getName(), "&c&l");
+                        break;
                     case THE_END:
                         root.region_settings.world_colors.put(w.getName(), "&5&l");
+                        break;
                     default:
                         root.region_settings.world_colors.put(w.getName(), "&a&l");
+                        break;
                 }
                 RedProtect.get().logger.warning("Added world to colors list " + w.getName());
             }
@@ -597,7 +628,23 @@ public class ConfigManager extends CoreConfigManager {
             signCfgs.getNode(rid).setValue(locs);
         }
         try {
-            signsLoader.save(signCfgs);
+            if (signsFile != null) {
+                java.nio.file.Path targetPath = signsFile.toPath();
+                java.nio.file.Path parentDir = targetPath.getParent();
+                java.nio.file.Path tmpPath = java.nio.file.Files.createTempFile(parentDir, "signs.", ".tmp");
+                try {
+                    YamlConfigMigrator.createYamlLoader(tmpPath.toFile()).save(signCfgs);
+                    try {
+                        java.nio.file.Files.move(tmpPath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                    } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                        java.nio.file.Files.move(tmpPath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } finally {
+                    java.nio.file.Files.deleteIfExists(tmpPath);
+                }
+            } else {
+                signsLoader.save(signCfgs);
+            }
         } catch (IOException e) {
             RedProtect.get().logger.severe("Problems during save file:");
             CoreUtil.printJarVersion();

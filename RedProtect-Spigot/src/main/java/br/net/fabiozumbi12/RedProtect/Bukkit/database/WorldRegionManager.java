@@ -28,6 +28,10 @@ package br.net.fabiozumbi12.RedProtect.Bukkit.database;
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -80,5 +84,71 @@ public interface WorldRegionManager {
     long getCanPurgeCount(String uuid, boolean canpurge);
 
     void updateLiveMembers(String rname, String leaders, String admins, String members);
+
+    static boolean containsPoint(Region r, int x, int y, int z) {
+        return r != null
+                && x <= r.getMaxMbrX() && x >= r.getMinMbrX()
+                && y <= r.getMaxY() && y >= r.getMinY()
+                && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ();
+    }
+
+    static int compareRegionPrecedence(Region a, Region b) {
+        int byPrior = Integer.compare(a.getPrior(), b.getPrior());
+        if (byPrior != 0) {
+            return byPrior;
+        }
+        int byArea = Integer.compare(b.getArea(), a.getArea());
+        if (byArea != 0) {
+            return byArea;
+        }
+        String nameA = a.getName() != null ? a.getName() : "";
+        String nameB = b.getName() != null ? b.getName() : "";
+        return nameA.compareTo(nameB);
+    }
+
+    static Region selectTopRegion(Collection<Region> regions, int x, int y, int z) {
+        Region best = null;
+        for (Region r : regions) {
+            if (!containsPoint(r, x, y, z)) {
+                continue;
+            }
+            if (best == null || compareRegionPrecedence(r, best) > 0) {
+                best = r;
+            }
+        }
+        return best;
+    }
+
+    static Region selectLowRegion(Collection<Region> regions, int x, int y, int z) {
+        Region lowest = null;
+        for (Region r : regions) {
+            if (!containsPoint(r, x, y, z)) {
+                continue;
+            }
+            if (lowest == null || compareRegionPrecedence(r, lowest) < 0) {
+                lowest = r;
+            }
+        }
+        return lowest;
+    }
+
+    static Map<Integer, Region> buildGroupRegionMap(Collection<Region> regions, int x, int y, int z) {
+        List<Region> matching = new ArrayList<>();
+        for (Region r : regions) {
+            if (containsPoint(r, x, y, z)) {
+                matching.add(r);
+            }
+        }
+        matching.sort(WorldRegionManager::compareRegionPrecedence);
+        Map<Integer, Region> regionList = new LinkedHashMap<>();
+        for (Region r : matching) {
+            int key = r.getPrior();
+            while (regionList.containsKey(key)) {
+                key++;
+            }
+            regionList.put(key, r);
+        }
+        return regionList;
+    }
 
 }

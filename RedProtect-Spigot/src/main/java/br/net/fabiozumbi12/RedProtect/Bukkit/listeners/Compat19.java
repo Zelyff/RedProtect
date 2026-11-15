@@ -64,7 +64,8 @@ public class Compat19 implements Listener {
         if (event.getEntity() instanceof Player p && event.isGliding()) {
             Region r = RedProtect.get().getRegionManager().getTopRegion(p.getLocation());
             if (r == null) {
-                if (!RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName()).player_glide.allow_glide) {
+                var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName());
+                if (gfWorld != null && !gfWorld.player_glide.allow_glide) {
                     event.setCancelled(true);
                     RedProtect.get().getLanguageManager().sendMessage(p, "globallistener.elytra.cantglide");
                 }
@@ -80,7 +81,8 @@ public class Compat19 implements Listener {
 
         // Glide options
         if (!p.hasPermission("redprotect.bypass.glide")) {
-            if (!RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName()).player_glide.allow_elytra) {
+            var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName());
+            if (gfWorld != null && !gfWorld.player_glide.allow_elytra) {
                 ItemStack item = p.getInventory().getChestplate();
                 if (item != null && item.getType().equals(Material.ELYTRA)) {
                     PlayerInventory inv = p.getInventory();
@@ -126,11 +128,13 @@ public class Compat19 implements Listener {
                 event.setUseItemInHand(Event.Result.DENY);
             }
             // Deny glide boost
-            if (r == null && p.isGliding() && itemInHand.getType().name().contains("FIREWORK") && !p.hasPermission("redprotect.bypass.glide") &&
-                    !RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName()).player_glide.allow_boost) {
-                event.setUseItemInHand(Event.Result.DENY);
-                event.setCancelled(true);
-                RedProtect.get().getLanguageManager().sendMessage(p, "globallistener.elytra.cantboost");
+            if (r == null && p.isGliding() && itemInHand.getType().name().contains("FIREWORK") && !p.hasPermission("redprotect.bypass.glide")) {
+                var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName());
+                if (gfWorld != null && !gfWorld.player_glide.allow_boost) {
+                    event.setUseItemInHand(Event.Result.DENY);
+                    event.setCancelled(true);
+                    RedProtect.get().getLanguageManager().sendMessage(p, "globallistener.elytra.cantboost");
+                }
             }
         }
     }
@@ -141,8 +145,8 @@ public class Compat19 implements Listener {
         Region r = RedProtect.get().getRegionManager().getTopRegion(e.getEntity().getLocation());
         if (r == null && e.getEntity() instanceof Player p && e.getDamager() instanceof Arrow arrow) {
             if (arrow.getShooter() instanceof Player && p.isGliding()) {
-                if (arrow.getShooter().equals(p) && !p.hasPermission("redprotect.bypass.glide") &&
-                        !RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName()).player_glide.allow_boost) {
+                var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName());
+                if (arrow.getShooter().equals(p) && !p.hasPermission("redprotect.bypass.glide") && gfWorld != null && !gfWorld.player_glide.allow_boost) {
                     e.setCancelled(true);
                     arrow.remove();
                     RedProtect.get().getLanguageManager().sendMessage(p, "globallistener.elytra.cantboost");
@@ -157,6 +161,9 @@ public class Compat19 implements Listener {
         final Player p = e.getPlayer();
         Location lfrom = e.getFrom();
         Location lto = e.getTo();
+        if (lto == null || lto.getWorld() == null) {
+            return;
+        }
 
         if (e.getCause().equals(PlayerTeleportEvent.TeleportCause.CHORUS_FRUIT)) {
             final Region rfrom = RedProtect.get().getRegionManager().getTopRegion(lfrom);
@@ -172,9 +179,11 @@ public class Compat19 implements Listener {
             }
         }
 
+        var gfToWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(lto.getWorld().getName());
         if (p.getInventory().getChestplate() != null &&
                 p.getInventory().getChestplate().getType().equals(Material.ELYTRA) &&
-                !RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(lto.getWorld().getName()).player_glide.allow_elytra) {
+                gfToWorld != null &&
+                !gfToWorld.player_glide.allow_elytra) {
             RedProtect.get().getLanguageManager().sendMessage(p, "globallistener.elytra.cantworld");
             e.setCancelled(true);
         }
@@ -187,7 +196,11 @@ public class Compat19 implements Listener {
         }
 
         Entity proj = e.getProjectile();
-        List<String> Pots = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName()).deny_potions;
+        var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(p.getWorld().getName());
+        if (gfWorld == null) {
+            return;
+        }
+        List<String> Pots = gfWorld.deny_potions;
 
         if ((proj instanceof TippedArrow arr)) {
             if (Pots.contains(arr.getName())) {

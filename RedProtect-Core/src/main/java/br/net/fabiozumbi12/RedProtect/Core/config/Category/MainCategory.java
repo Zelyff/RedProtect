@@ -56,7 +56,7 @@ public class MainCategory {
     public flagsConfig flags_configuration = new flagsConfig();
     @Setting(value = "flat-file", comment = "Options for flatfile database.")
     public flatFile flat_file = new flatFile();
-    @Setting(comment = "Available: DE-DE, EN-US, ES-ES, FR-FR, PL-PL, PT-BR, RU-RU, ZH-CN")
+    @Setting(comment = "Available: DE-DE, EN-US, ES-ES, FR-FR, ID-ID, PL-PL, PT-BR, RU-RU, ZH-CN")
     public String language = !Locale.getDefault().getLanguage().isEmpty() && !Locale.getDefault().getCountry().isEmpty() ? Locale.getDefault().getLanguage().toUpperCase() + "-" + Locale.getDefault().getCountry().toUpperCase() : "EN-US";
     @Setting(value = "log-actions", comment = "Log all redprotect commands?")
     public boolean log_actions = true;
@@ -159,7 +159,7 @@ public class MainCategory {
         public flagsDelay change_flag_delay = new flagsDelay();
         @Setting(value = "effects-duration", comment = "Delay for effects flags.")
         public int effects_duration = 5;
-        @Setting(value = "mod-entities", comment = "Add MOD entities names for Animal or Monster spawn flags.\nCheck \"textures.conf\" for entity names.")
+        @Setting(value = "mod-entities", comment = "Add MOD entities names for Animal or Monster spawn flags.\nCheck \"textures.yml\" for entity names.")
         public modEntities modEntities = new modEntities();
         @Setting(value = "custom-containers", comment = "Add custom or MOD block names to be manageable in the 'chest' flag GUI.")
         public List<String> custom_containers = new ArrayList<>();
@@ -384,6 +384,8 @@ public class MainCategory {
 
         @ConfigSerializable
         public static class borderCat {
+            @Setting(comment = "Border visualization mode. Values: PARTICLE, BLOCK (GP-style fake blocks), HYBRID (fake blocks + particles). Default: BLOCK")
+            public String mode = "BLOCK";
             @Setting(comment = "The particle to show on region border. Customizable particles like colors is not compatible and will not work. Default: FLAME")
             public String particle = "FLAME";
             @Setting(value = "time-showing", comment = "Time the border will be visible in seconds.")
@@ -392,6 +394,16 @@ public class MainCategory {
             public int height = 5;
             @Setting(comment = "Set the intensity of border. This will determine the amount of the particles. Values: LOW, NORMAL, HIGH")
             public String intensity = "NORMAL";
+            @Setting(value = "glow-outline", comment = "Java 1.19.4+ only: render glowing BlockDisplay outlines visible through solid blocks on boundary markers. Automatically skipped for Bedrock players. Default: true")
+            public boolean glow_outline = true;
+            @Setting(value = "fake-block-step", comment = "Spacing in blocks between side markers in BLOCK/HYBRID border mode (GriefPrevention style). Default: 10")
+            public int fake_block_step = 10;
+            @Setting(value = "fake-block-radius", comment = "Maximum distance in blocks from the viewer where fake-block border markers are rendered. Default: 75")
+            public int fake_block_radius = 75;
+            @Setting(value = "fake-block-max-elements", comment = "Maximum number of fake block updates sent per preview session per viewer. Default: 400")
+            public int fake_block_max_elements = 400;
+            @Setting(value = "glow-max-entities", comment = "Maximum number of per-viewer glowing BlockDisplay entities spawned per preview session (Java 1.19.4+). Default: 48")
+            public int glow_max_entities = 48;
         }
 
         @ConfigSerializable
@@ -402,6 +414,11 @@ public class MainCategory {
             public int miny = -1;
             @Setting(value = "amount-per-player", comment = "Default claim amount per player if no claim permissions set. The permission \"redprotect.limits.claim.<limit>\" overrides this setting.")
             public int amount_per_player = 20;
+            @Setting(value = "wand-mode", comment = """
+                    Wand claiming & resizing interaction mode. Values: GP_DIRECT or NATIVE.
+                    -> GP_DIRECT: Right-click corner 1 then right-click corner 2 to immediately create a region (no /rp claim needed), or right-click an existing corner then a new corner to resize (preserving custom Y bounds).
+                    -> NATIVE: Classic RedProtect left/right click wand selection followed by /rp claim or /rp redefine.""")
+            public String wand_mode = "GP_DIRECT";
 
             @Setting
             public modesCat modes = new modesCat();
@@ -476,12 +493,16 @@ public class MainCategory {
             list.put("forge", new ModActions("Forge",List.of("fml", "forge"), false, "kick {p} The mod {mod} is not allowed in this server!", new ArrayList<>(), true, false));
             list.put("liteloader", new ModActions("Lite Loader", List.of("LiteLoader", "Lite"), false, "kick {p} The mod {mod} is not allowed in this server!", new ArrayList<>(), true, false));
             list.put("rift", new ModActions("Rift", List.of("rift"), false, "kick {p} The mod {mod} is not allowed in this server!", new ArrayList<>(), true, false));
-            list.put("5zigmod", new ModActions("5ZigMod", List.of("the5zigmod:5zig_set"), false, "kick {p} The mod {mod} is not allowed in this server!", List.of(new String(new byte[]{0x1,0x2,0x4,0x8,0x16,0x32}, StandardCharsets.UTF_8)), true, true));
-            list.put("bsm", new ModActions("BSM Settings", List.of("bsm:settings"), false, "kick {p} The mod {mod} is not allowed in this server!", List.of(new String(new byte[]{1}, StandardCharsets.UTF_8)), true, true));
-            list.put("wdl" ,new ModActions("World Downloader Init", List.of("wdl:init"), false, "kick {p} The mod {mod} is not allowed in this server!", List.of(new String(createWDLPacket0(), StandardCharsets.UTF_8), new String(createWDLPacket1(), StandardCharsets.UTF_8)), true, true));
-            list.put("schematica", new ModActions("Schematica", List.of("dev:null"), false, "", List.of(new String(getSchematicaPayload(), StandardCharsets.UTF_8)), false, true));
+            list.put("5zigmod", new ModActions("5ZigMod", List.of("the5zigmod:5zig_set"), false, "kick {p} The mod {mod} is not allowed in this server!", List.of(encodeBytes(new byte[]{0x1, 0x2, 0x4, 0x8, 0x16, 0x32})), true, true));
+            list.put("bsm", new ModActions("BSM Settings", List.of("bsm:settings"), false, "kick {p} The mod {mod} is not allowed in this server!", List.of(encodeBytes(new byte[]{1})), true, true));
+            list.put("wdl", new ModActions("World Downloader Init", List.of("wdl:init"), false, "kick {p} The mod {mod} is not allowed in this server!", List.of(encodeBytes(createWDLPacket0()), encodeBytes(createWDLPacket1())), true, true));
+            list.put("schematica", new ModActions("Schematica", List.of("dev:null"), false, "", List.of(encodeBytes(getSchematicaPayload())), false, true));
             list.put("litematica", new ModActions("Litematica", List.of("litematica"), false, "", new ArrayList<>(), true, false));
             return list;
+        }
+
+        private static String encodeBytes(byte[] raw) {
+            return "base64:" + Base64.getEncoder().encodeToString(raw);
         }
 
         private static byte[] getSchematicaPayload() {
@@ -579,6 +600,14 @@ public class MainCategory {
         public infernalCat infernal_mobs = new infernalCat();
         @Setting
         public dynmapCat dynmap = new dynmapCat();
+        @Setting(value = "bedrock-gui", comment = "Bedrock Forms GUI via Floodgate/Geyser Cumulus API. Java players continue using chest GUIs unchanged.")
+        public bedrockGuiCat bedrock_gui = new bedrockGuiCat();
+
+        @ConfigSerializable
+        public static class bedrockGuiCat {
+            @Setting(comment = "Enable Cumulus Forms GUI for Bedrock (Floodgate) players when Floodgate is installed? Default: true")
+            public boolean enabled = true;
+        }
 
         @ConfigSerializable
         public static class mcmmoCat {

@@ -49,12 +49,20 @@ public class WandCommand implements SubCommand {
         }
 
         Player player = (Player) sender;
-        if (RedProtect.get().getConfigManager().getWorldClaimType(player.getWorld().getName()).equalsIgnoreCase("BLOCK") && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.command.admin.wand"))
+        String claimmode = RedProtect.get().getConfigManager().getWorldClaimType(player.getWorld().getName());
+        if (!claimmode.equalsIgnoreCase("WAND") && !claimmode.equalsIgnoreCase("BOTH")
+                && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.command.admin.wand")
+                && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.bypass.world")) {
+            RedProtect.get().getLanguageManager().sendMessage(player, "blocklistener.region.blockmode");
             return true;
+        }
 
         if (args.length == 0) {
             Inventory inv = player.getInventory();
             Material mat = Material.getMaterial(RedProtect.get().getConfigManager().configRoot().wands.adminWandID);
+            if (mat == null || !mat.isItem()) {
+                return true;
+            }
             ItemStack item = new ItemStack(mat);
             if (!inv.contains(mat) && inv.firstEmpty() != -1) {
                 inv.addItem(item);

@@ -38,6 +38,10 @@ import org.bukkit.command.CommandException;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class WorldMySQLRegionManager implements WorldRegionManager {
@@ -51,14 +55,21 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
             "world", "prior", "wel", "admins", "members",
             "leaders", "value"
     );
-    private final HashMap<String, Region> regions;
+    private final Map<String, Region> regions;
     private final String world;
+    private final Object dbLock = new Object();
+    private final ExecutorService dbWriteExecutor;
     private Connection dbcon;
 
     public WorldMySQLRegionManager(String world) throws SQLException {
         super();
-        this.regions = new HashMap<>();
+        this.regions = new ConcurrentHashMap<>();
         this.world = world;
+        this.dbWriteExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "RedProtect-MySQL-" + world);
+            thread.setDaemon(true);
+            return thread;
+        });
         this.tableName = RedProtectUtil.sanitizeTableName(RedProtect.get().getConfigManager().configRoot().mysql.table_prefix + world);
 
         this.dbcon = null;
@@ -140,13 +151,31 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
     }
 
 
+    private void submitDbWrite(Runnable task) {
+        if (dbWriteExecutor.isShutdown()) {
+            return;
+        }
+        dbWriteExecutor.execute(() -> {
+            synchronized (this.dbLock) {
+                if (this.dbcon == null) {
+                    ConnectDB();
+                }
+                if (this.dbcon == null) {
+                    return;
+                }
+                task.run();
+            }
+        });
+    }
+
     /*-------------------------------------- Live Actions -------------------------------------------*/
     @Override
     public void remove(Region r) {
         this.regions.remove(r.getName());
-        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
+        String regionKey = r.getName().toLowerCase();
+        submitDbWrite(() -> {
             try (PreparedStatement st = this.dbcon.prepareStatement("DELETE FROM `" + tableName + "` WHERE LOWER(name) = ?")) {
-                st.setString(1, r.getName().toLowerCase());
+                st.setString(1, regionKey);
                 st.executeUpdate();
             } catch (SQLException e) {
                 CoreUtil.printJarVersion();
@@ -158,30 +187,52 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
     @Override
     public void add(Region r) {
         this.regions.put(r.getName(), r);
-        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
+        String name = r.getName();
+        String leaders = r.getLeadersString();
+        String admins = r.getAdminString();
+        String members = r.getMembersString();
+        int maxMbrX = r.getMaxMbrX();
+        int minMbrX = r.getMinMbrX();
+        int maxMbrZ = r.getMaxMbrZ();
+        int minMbrZ = r.getMinMbrZ();
+        int minY = r.getMinY();
+        int maxY = r.getMaxY();
+        int centerX = r.getCenterX();
+        int centerZ = r.getCenterZ();
+        String date = r.getDate();
+        String welcome = r.getWelcome();
+        int prior = r.getPrior();
+        String rWorld = r.getWorld();
+        double value = r.getValue();
+        String tpPoint = r.getTPPointString();
+        int canDelete = r.canDelete() ? 1 : 0;
+        String flagsStr = r.getFlagStrings();
+        int canPurge = r.canPurge() ? 1 : 0;
+
+        submitDbWrite(() -> {
             try (PreparedStatement st = dbcon.prepareStatement("INSERT INTO `" + tableName + "` (name,leaders,admins,members,maxMbrX,minMbrX,maxMbrZ,minMbrZ,minY,maxY,centerX,centerZ,date,wel,prior,world,value,tppoint,candelete,flags,canpurge) "
                     + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
-                st.setString(1, r.getName());
-                st.setString(2, r.getLeadersString());
-                st.setString(3, r.getAdminString());
-                st.setString(4, r.getMembersString());
-                st.setInt(5, r.getMaxMbrX());
-                st.setInt(6, r.getMinMbrX());
-                st.setInt(7, r.getMaxMbrZ());
-                st.setInt(8, r.getMinMbrZ());
-                st.setInt(9, r.getMinY());
-                st.setInt(10, r.getMaxY());
-                st.setInt(11, r.getCenterX());
-                st.setInt(12, r.getCenterZ());
-                st.setString(13, r.getDate());
-                st.setString(14, r.getWelcome());
-                st.setInt(15, r.getPrior());
-                st.setString(16, r.getWorld());
-                st.setDouble(17, r.getValue());
-                st.setString(18, r.getTPPointString());
-                st.setInt(19, r.canDelete() ? 1 : 0);
-                st.setString(20, r.getFlagStrings());
-                st.setInt(21, r.canPurge() ? 1 : 0);
+                st.setString(1, name);
+                st.setString(2, leaders);
+                st.setString(3, admins);
+                st.setString(4, members);
+                st.setInt(5, maxMbrX);
+                st.setInt(6, minMbrX);
+                st.setInt(7, maxMbrZ);
+                st.setInt(8, minMbrZ);
+                st.setInt(9, minY);
+                st.setInt(10, maxY);
+                st.setInt(11, centerX);
+                st.setInt(12, centerZ);
+                st.setString(13, date);
+                st.setString(14, welcome);
+                st.setInt(15, prior);
+                st.setString(16, rWorld);
+                st.setDouble(17, value);
+                st.setString(18, tpPoint);
+                st.setInt(19, canDelete);
+                st.setString(20, flagsStr);
+                st.setInt(21, canPurge);
 
                 st.executeUpdate();
             } catch (SQLException e) {
@@ -196,17 +247,15 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
         Region region = getRegion(rname);
         if (region == null) return;
         String flagsStr = region.getFlagStrings();
-        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-            synchronized (this.dbcon) {
-                try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET flags = ? WHERE LOWER(name) = ?")) {
-                    st.setString(1, flagsStr);
-                    st.setString(2, rname.toLowerCase());
-                    st.executeUpdate();
-                } catch (SQLException e) {
-                    RedProtect.get().logger.severe("RedProtect can't save flag for region " + rname + ", please verify the Mysql Connection and table structures.");
-                    CoreUtil.printJarVersion();
-                    e.printStackTrace();
-                }
+        submitDbWrite(() -> {
+            try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET flags = ? WHERE LOWER(name) = ?")) {
+                st.setString(1, flagsStr);
+                st.setString(2, rname.toLowerCase());
+                st.executeUpdate();
+            } catch (SQLException e) {
+                RedProtect.get().logger.severe("RedProtect can't save flag for region " + rname + ", please verify the Mysql Connection and table structures.");
+                CoreUtil.printJarVersion();
+                e.printStackTrace();
             }
         });
     }
@@ -217,17 +266,15 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
             RedProtect.get().logger.severe("Invalid column name rejected: " + column + " for region " + rname);
             return;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-            synchronized (this.dbcon) {
-                try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET " + column + " = ? WHERE LOWER(name) = ? ")) {
-                    st.setObject(1, value);
-                    st.setString(2, rname.toLowerCase());
-                    st.executeUpdate();
-                } catch (SQLException e) {
-                    RedProtect.get().logger.severe("RedProtect can't save the region " + rname + ", please verify the Mysql Connection and table structures.");
-                    CoreUtil.printJarVersion();
-                    e.printStackTrace();
-                }
+        submitDbWrite(() -> {
+            try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET " + column + " = ? WHERE LOWER(name) = ? ")) {
+                st.setObject(1, value);
+                st.setString(2, rname.toLowerCase());
+                st.executeUpdate();
+            } catch (SQLException e) {
+                RedProtect.get().logger.severe("RedProtect can't save the region " + rname + ", please verify the Mysql Connection and table structures.");
+                CoreUtil.printJarVersion();
+                e.printStackTrace();
             }
         });
     }
@@ -237,36 +284,32 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
         Region region = getRegion(rname);
         if (region == null) return;
         String flagsStr = region.getFlagStrings();
-        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-            synchronized (this.dbcon) {
-                try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET flags = ? WHERE LOWER(name) = ?")) {
-                    st.setString(1, flagsStr);
-                    st.setString(2, rname.toLowerCase());
-                    st.executeUpdate();
-                } catch (SQLException e) {
-                    RedProtect.get().logger.severe("RedProtect can't save flag for region " + rname + ", please verify the Mysql Connection and table structures.");
-                    CoreUtil.printJarVersion();
-                    e.printStackTrace();
-                }
+        submitDbWrite(() -> {
+            try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET flags = ? WHERE LOWER(name) = ?")) {
+                st.setString(1, flagsStr);
+                st.setString(2, rname.toLowerCase());
+                st.executeUpdate();
+            } catch (SQLException e) {
+                RedProtect.get().logger.severe("RedProtect can't save flag for region " + rname + ", please verify the Mysql Connection and table structures.");
+                CoreUtil.printJarVersion();
+                e.printStackTrace();
             }
         });
     }
 
     @Override
     public void updateLiveMembers(String rname, String leaders, String admins, String members) {
-        Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-            synchronized (this.dbcon) {
-                try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET leaders = ?, admins = ?, members = ? WHERE LOWER(name) = ?")) {
-                    st.setString(1, leaders);
-                    st.setString(2, admins);
-                    st.setString(3, members);
-                    st.setString(4, rname.toLowerCase());
-                    st.executeUpdate();
-                } catch (SQLException e) {
-                    RedProtect.get().logger.severe("RedProtect can't save members for region " + rname + ", please verify the Mysql Connection and table structures.");
-                    CoreUtil.printJarVersion();
-                    e.printStackTrace();
-                }
+        submitDbWrite(() -> {
+            try (PreparedStatement st = this.dbcon.prepareStatement("UPDATE `" + tableName + "` SET leaders = ?, admins = ?, members = ? WHERE LOWER(name) = ?")) {
+                st.setString(1, leaders);
+                st.setString(2, admins);
+                st.setString(3, members);
+                st.setString(4, rname.toLowerCase());
+                st.executeUpdate();
+            } catch (SQLException e) {
+                RedProtect.get().logger.severe("RedProtect can't save members for region " + rname + ", please verify the Mysql Connection and table structures.");
+                CoreUtil.printJarVersion();
+                e.printStackTrace();
             }
         });
     }
@@ -473,69 +516,16 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
 
     @Override
     public Region getTopRegion(int x, int y, int z) {
-        Map<Integer, Region> regionlist = new HashMap<>();
-        int max = 0;
-        for (Region r : regions.values()) {
-            if (x <= r.getMaxMbrX() && x >= r.getMinMbrX() && y <= r.getMaxY() && y >= r.getMinY() && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ()) {
-                if (regionlist.containsKey(r.getPrior())) {
-                    Region reg1 = regionlist.get(r.getPrior());
-                    int Prior = r.getPrior();
-                    if (reg1.getArea() >= r.getArea()) {
-                        r.setPrior(Prior + 1);
-                    } else {
-                        reg1.setPrior(Prior + 1);
-                    }
-                }
-                regionlist.put(r.getPrior(), r);
-            }
-        }
-        if (!regionlist.isEmpty()) {
-            max = Collections.max(regionlist.keySet());
-        }
-        return regionlist.get(max);
+        return WorldRegionManager.selectTopRegion(regions.values(), x, y, z);
     }
 
     @Override
     public Region getLowRegion(int x, int y, int z) {
-        Map<Integer, Region> regionlist = new HashMap<>();
-        int min = 0;
-        for (Region r : regions.values()) {
-            if (x <= r.getMaxMbrX() && x >= r.getMinMbrX() && y <= r.getMaxY() && y >= r.getMinY() && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ()) {
-                if (regionlist.containsKey(r.getPrior())) {
-                    Region reg1 = regionlist.get(r.getPrior());
-                    int Prior = r.getPrior();
-                    if (reg1.getArea() >= r.getArea()) {
-                        r.setPrior(Prior + 1);
-                    } else {
-                        reg1.setPrior(Prior + 1);
-                    }
-                }
-                regionlist.put(r.getPrior(), r);
-            }
-        }
-        if (!regionlist.isEmpty()) {
-            min = Collections.min(regionlist.keySet());
-        }
-        return regionlist.get(min);
+        return WorldRegionManager.selectLowRegion(regions.values(), x, y, z);
     }
 
     public Map<Integer, Region> getGroupRegion(int x, int y, int z) {
-        Map<Integer, Region> regionlist = new HashMap<>();
-        for (Region r : regions.values()) {
-            if (x <= r.getMaxMbrX() && x >= r.getMinMbrX() && y <= r.getMaxY() && y >= r.getMinY() && z <= r.getMaxMbrZ() && z >= r.getMinMbrZ()) {
-                if (regionlist.containsKey(r.getPrior())) {
-                    Region reg1 = regionlist.get(r.getPrior());
-                    int Prior = r.getPrior();
-                    if (reg1.getArea() >= r.getArea()) {
-                        r.setPrior(Prior + 1);
-                    } else {
-                        reg1.setPrior(Prior + 1);
-                    }
-                }
-                regionlist.put(r.getPrior(), r);
-            }
-        }
-        return regionlist;
+        return WorldRegionManager.buildGroupRegionMap(regions.values(), x, y, z);
     }
 
     @Override
@@ -552,12 +542,23 @@ public class WorldMySQLRegionManager implements WorldRegionManager {
 
     @Override
     public void closeConn() {
+        dbWriteExecutor.shutdown();
         try {
-            if (this.dbcon != null && !this.dbcon.isClosed()) {
-                this.dbcon.close();
+            if (!dbWriteExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                dbWriteExecutor.shutdownNow();
             }
-        } catch (SQLException e) {
-            RedProtect.get().logger.severe("No connections to close! Forget this message ;)");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            dbWriteExecutor.shutdownNow();
+        }
+        synchronized (this.dbLock) {
+            try {
+                if (this.dbcon != null && !this.dbcon.isClosed()) {
+                    this.dbcon.close();
+                }
+            } catch (SQLException e) {
+                RedProtect.get().logger.severe("No connections to close! Forget this message ;)");
+            }
         }
     }
 

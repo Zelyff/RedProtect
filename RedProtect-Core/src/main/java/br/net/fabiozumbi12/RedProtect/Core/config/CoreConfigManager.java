@@ -33,7 +33,6 @@ import br.net.fabiozumbi12.RedProtect.Core.config.Category.HeadTexturesCategory;
 import br.net.fabiozumbi12.RedProtect.Core.config.Category.MainCategory;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil;
 import ninja.leaping.configurate.ConfigurationNode;
-import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 
@@ -112,7 +111,7 @@ public class CoreConfigManager {
             +--------------------------------------------------------------------+ #
 
             Notes:
-            Lists are [object1, object2, ...]
+            Lists use YAML sequence syntax (- object1) or [object1, object2]
             Strings containing the char & always need to be quoted""";
     protected final String headerGf = """
             +--------------------------------------------------------------------+ #
@@ -124,7 +123,7 @@ public class CoreConfigManager {
             +--------------------------------------------------------------------+ #
 
             Notes:
-            Lists are [object1, object2, ...]
+            Lists use YAML sequence syntax (- object1) or [object1, object2]
             Strings containing the char & always need to be quoted""";
     protected final String headerGui = """
             +--------------------------------------------------------------------+ #
@@ -145,7 +144,7 @@ public class CoreConfigManager {
             +--------------------------------------------------------------------+ #
 
             Notes:
-            Lists are [object1, object2, ...]
+            Lists use YAML sequence syntax (- object1) or [object1, object2]
             Strings containing the char & always need to be quoted""";
     protected final String headerHeadtext = """
             +--------------------------------------------------------------------+ #
@@ -155,33 +154,47 @@ public class CoreConfigManager {
             +--------------------------------------------------------------------+ #
 
             Notes:
-            Lists are [object1, object2, ...]
+            Lists use YAML sequence syntax (- object1) or [object1, object2]
             Strings containing the char & always need to be quoted""";
+    protected final File pluginFolder;
+    protected File ecoFile;
     protected ConfigurationNode ecoCfgRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> ecoLoader;
+    protected ConfigurationLoader<ConfigurationNode> ecoLoader;
     protected EconomyCategory ecoRoot;
+    protected File headTextFile;
     protected ConfigurationNode headTextCfgRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> headTextLoader;
+    protected ConfigurationLoader<ConfigurationNode> headTextLoader;
     protected HeadTexturesCategory headTextRoot;
+    protected File signsFile;
     protected ConfigurationNode signCfgs;
-    protected ConfigurationLoader<CommentedConfigurationNode> signsLoader;
+    protected ConfigurationLoader<ConfigurationNode> signsLoader;
+    protected File guiFile;
     protected ConfigurationNode guiCfgRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> guiCfgLoader;
+    protected ConfigurationLoader<ConfigurationNode> guiCfgLoader;
     protected FlagGuiCategory guiRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> gFlagsLoader;
+    protected File gFlagsFile;
+    protected ConfigurationLoader<ConfigurationNode> gFlagsLoader;
     protected ConfigurationNode gflagsRoot;
     protected GlobalFlagsCategory globalFlagsRoot;
+    protected File configFile;
     protected ConfigurationNode configRoot;
-    protected ConfigurationLoader<CommentedConfigurationNode> cfgLoader;
+    protected ConfigurationLoader<ConfigurationNode> cfgLoader;
     protected MainCategory root;
 
     protected CoreConfigManager(File pluginFolder) {
+        this.pluginFolder = pluginFolder;
         if (!pluginFolder.exists()) {
             pluginFolder.mkdir();
         }
         if (!new File(pluginFolder, "data").exists()) {
             new File(pluginFolder, "data").mkdir();
         }
+        this.configFile = new File(pluginFolder, "config.yml");
+        this.gFlagsFile = new File(pluginFolder, "globalflags.yml");
+        this.guiFile = new File(pluginFolder, "guiconfig.yml");
+        this.ecoFile = new File(pluginFolder, "economy.yml");
+        this.headTextFile = new File(pluginFolder, "textures.yml");
+        this.signsFile = new File(pluginFolder, "signs.yml");
     }
 
     public HashMap<String, Object> getDefFlagsValues() {
@@ -216,27 +229,37 @@ public class CoreConfigManager {
     }
 
     public int getGuiSlot(String flag) {
-        return guiRoot.gui_flags.get(flag).slot;
+        FlagGuiCategory.GuiFlag entry = guiRoot != null && guiRoot.gui_flags != null ? guiRoot.gui_flags.get(flag) : null;
+        return entry != null ? entry.slot : 0;
     }
 
     public void setGuiSlot(String flag, int slot) {
-        guiRoot.gui_flags.get(flag).slot = slot;
+        FlagGuiCategory.GuiFlag entry = guiRoot != null && guiRoot.gui_flags != null ? guiRoot.gui_flags.get(flag) : null;
+        if (entry == null) {
+            return;
+        }
+        entry.slot = slot;
         saveGui();
     }
 
     public int getGuiMaxSlot() {
-        SortedSet<Integer> slots = new TreeSet<>(new ArrayList<>());
-        for (FlagGuiCategory.GuiFlag key : guiRoot.gui_flags.values()) {
-            slots.add(key.slot);
+        if (guiRoot == null || guiRoot.gui_flags == null || guiRoot.gui_flags.isEmpty()) {
+            return 0;
         }
-        return Collections.max(slots);
+        int maxSlot = -1;
+        for (FlagGuiCategory.GuiFlag key : guiRoot.gui_flags.values()) {
+            if (key != null && key.slot > maxSlot) {
+                maxSlot = key.slot;
+            }
+        }
+        return maxSlot >= 0 ? maxSlot + 1 : 0;
     }
 
 
     private void saveConfig() {
         try {
             configRoot.setValue(of(MainCategory.class), root);
-            cfgLoader.save(configRoot);
+            YamlConfigMigrator.saveYamlWithComments(configFile, configRoot, headerCfg, MainCategory.class);
         } catch (IOException | ObjectMappingException e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();
@@ -246,7 +269,7 @@ public class CoreConfigManager {
     protected void saveGFlags() {
         try {
             gflagsRoot.setValue(of(GlobalFlagsCategory.class), globalFlagsRoot);
-            gFlagsLoader.save(gflagsRoot);
+            YamlConfigMigrator.saveYamlWithComments(gFlagsFile, gflagsRoot, headerGf, GlobalFlagsCategory.class);
         } catch (IOException | ObjectMappingException e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();
@@ -258,11 +281,12 @@ public class CoreConfigManager {
             saveConfig();
             saveGFlags();
 
-            ecoLoader.save(ecoCfgRoot);
-            signsLoader.save(signCfgs);
+            ecoCfgRoot.setValue(of(EconomyCategory.class), ecoRoot);
+            YamlConfigMigrator.saveYamlWithComments(ecoFile, ecoCfgRoot, headerEco, EconomyCategory.class);
+            YamlConfigMigrator.saveYamlWithComments(signsFile, signCfgs, null, null);
             saveHeadTextures();
             saveGui();
-        } catch (IOException e) {
+        } catch (IOException | ObjectMappingException e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();
         }
@@ -271,7 +295,7 @@ public class CoreConfigManager {
     public void saveHeadTextures() {
         try {
             headTextCfgRoot.setValue(of(HeadTexturesCategory.class), headTextRoot);
-            headTextLoader.save(headTextCfgRoot);
+            YamlConfigMigrator.saveYamlWithComments(headTextFile, headTextCfgRoot, headerHeadtext, HeadTexturesCategory.class);
         } catch (IOException | ObjectMappingException e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();
@@ -281,7 +305,7 @@ public class CoreConfigManager {
     public void saveGui() {
         try {
             guiCfgRoot.setValue(of(FlagGuiCategory.class), guiRoot);
-            guiCfgLoader.save(guiCfgRoot);
+            YamlConfigMigrator.saveYamlWithComments(guiFile, guiCfgRoot, headerGui, FlagGuiCategory.class);
         } catch (IOException | ObjectMappingException e) {
             CoreUtil.printJarVersion();
             e.printStackTrace();

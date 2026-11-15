@@ -114,6 +114,17 @@ public class ChestFlagGui implements Listener {
         this.currentPage = 0;
         this.name = RedProtect.get().getLanguageManager().get("gui.title.chest");
 
+        List<Material> materials = getContainerMaterials();
+
+        this.allContainerItems = buildAllContainerItems(materials, region.getFlagString(flag));
+        this.totalPages = Math.max(1, (int) Math.ceil((double) allContainerItems.size() / ITEMS_PER_PAGE));
+    }
+
+    /**
+     * Collects all valid container {@link Material} entries (built-in plus configured custom containers).
+     * Shared by both the Java {@link ChestFlagGui} and Bedrock Forms UI.
+     */
+    public static List<Material> getContainerMaterials() {
         List<String> allBlocks = new ArrayList<>(CONTAINER_BLOCKS);
         List<String> customBlocks = RedProtect.get().getConfigManager().configRoot().flags_configuration.custom_containers;
         if (customBlocks != null) {
@@ -124,14 +135,11 @@ public class ChestFlagGui implements Listener {
             }
         }
 
-        List<Material> materials = allBlocks.stream()
+        return allBlocks.stream()
                 .map(Material::getMaterial)
                 .filter(Objects::nonNull)
                 .filter(Material::isItem)
                 .collect(Collectors.toList());
-
-        this.allContainerItems = buildAllContainerItems(materials, region.getFlagString(flag));
-        this.totalPages = Math.max(1, (int) Math.ceil((double) allContainerItems.size() / ITEMS_PER_PAGE));
     }
 
     @EventHandler
@@ -271,10 +279,11 @@ public class ChestFlagGui implements Listener {
 
     @EventHandler
     void onPluginDisable(PluginDisableEvent event) {
-        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Is PluginDisableEvent event.");
-        for (Player play : event.getPlugin().getServer().getOnlinePlayers()) {
-            play.closeInventory();
+        if (!event.getPlugin().equals(RedProtect.get())) {
+            return;
         }
+        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Is PluginDisableEvent event.");
+        close(true);
     }
 
     private void close(boolean close) {
@@ -283,7 +292,9 @@ public class ChestFlagGui implements Listener {
 
         // Check for items
         this.player.updateInventory();
-        Bukkit.getScheduler().runTaskLater(RedProtect.get(), this.player::updateInventory, 1);
+        if (RedProtect.get().isEnabled()) {
+            Bukkit.getScheduler().runTaskLater(RedProtect.get(), this.player::updateInventory, 1);
+        }
         if (close) this.player.closeInventory();
 
         this.allContainerItems = null;
@@ -310,9 +321,10 @@ public class ChestFlagGui implements Listener {
     }
 
     private void setFlagValue(Object value) {
-        region.setFlag(this.player, flag, value);
-        RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.set").replace("{flag}", "'" + flag + "'") + " " + region.getFlagString(flag));
-        RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " SET FLAG " + flag + " of region " + region.getName() + " to " + region.getFlagString(flag));
+        if (region.setFlag(this.player, flag, value)) {
+            RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.set").replace("{flag}", "'" + flag + "'") + " " + region.getFlagString(flag));
+            RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " SET FLAG " + flag + " of region " + region.getName() + " to " + region.getFlagString(flag));
+        }
     }
 
     private List<ItemStack> buildAllContainerItems(List<Material> materials, String flagValue) {

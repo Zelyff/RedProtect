@@ -30,57 +30,190 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
 import br.net.fabiozumbi12.RedProtect.Core.helpers.LogLevel;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryCreativeEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class ItemFlagGui implements Listener {
 
+    static final int GUI_SIZE = 54;
+    static final int ITEMS_PER_PAGE = 45;
+    static final int NAV_PREV_SLOT = 45;
+    static final int NAV_INFO_SLOT = 49;
+    static final int NAV_NEXT_SLOT = 53;
+
     private final String flag;
     private final Player player;
-    private ItemStack[] guiItems;
+    private final List<String> selectedMaterials = new ArrayList<>();
     private Region region;
+    private Inventory inv;
+    private int page = 0;
+    private boolean closed = false;
 
     public ItemFlagGui(Player player, Region region, String flag) {
         this.player = player;
         this.region = region;
         this.flag = flag;
+        parseFlagItems(region != null ? region.getFlagString(flag) : "");
+    }
 
-        this.guiItems = Arrays.stream(region.getFlagString(flag).trim().toUpperCase().split(",")).sorted()
-                .filter(item -> Arrays.stream(Material.values()).anyMatch(i -> i.name().equals(item)))
-                .map(i -> new ItemStack(Material.valueOf(i))).toArray(ItemStack[]::new);
+    /**
+     * Parses CSV material names into sorted distinct uppercase entries, keeping both items and block-only materials.
+     */
+    static List<String> parseMaterials(String rawValue) {
+        List<String> result = new ArrayList<>();
+        if (rawValue == null || rawValue.isBlank()) {
+            return result;
+        }
+        for (String token : rawValue.split(",")) {
+            String trimmed = token.trim().toUpperCase();
+            if (trimmed.isEmpty() || "TRUE".equals(trimmed) || "FALSE".equals(trimmed)) {
+                continue;
+            }
+            Material mat = Material.getMaterial(trimmed);
+            if (mat != null && mat != Material.AIR && !result.contains(mat.name())) {
+                result.add(mat.name());
+            }
+        }
+        Collections.sort(result);
+        return result;
+    }
+
+    private void parseFlagItems(String rawValue) {
+        selectedMaterials.clear();
+        selectedMaterials.addAll(parseMaterials(rawValue));
+    }
+
+    int getTotalPages() {
+        return Math.max(1, (selectedMaterials.size() + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE);
+    }
+
+    int getPage() {
+        return page;
+    }
+
+    List<String> getSelectedMaterials() {
+        return Collections.unmodifiableList(selectedMaterials);
+    }
+
+    boolean addMaterial(String materialName) {
+        if (materialName == null || materialName.isBlank()) {
+            return false;
+        }
+        Material mat = Material.getMaterial(materialName.trim().toUpperCase());
+        if (mat == null || mat == Material.AIR || selectedMaterials.contains(mat.name())) {
+            return false;
+        }
+        selectedMaterials.add(mat.name());
+        Collections.sort(selectedMaterials);
+        return true;
+    }
+
+    boolean removeAtDisplaySlot(int slot) {
+        if (slot < 0 || slot >= ITEMS_PER_PAGE) {
+            return false;
+        }
+        int idx = page * ITEMS_PER_PAGE + slot;
+        if (idx < 0 || idx >= selectedMaterials.size()) {
+            return false;
+        }
+        selectedMaterials.remove(idx);
+        if (page > 0 && page >= getTotalPages()) {
+            page = getTotalPages() - 1;
+        }
+        return true;
+    }
+
+    String formatFlagValue() {
+        return String.join(",", selectedMaterials);
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    void onInventoryClick(InventoryClickEvent event) {
+        if (this.inv == null || !event.getView().getTopInventory().equals(this.inv)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (!event.getWhoClicked().equals(this.player) || this.closed) {
+            return;
+        }
+
+        int rawSlot = event.getRawSlot();
+        if (rawSlot >= 0 && rawSlot < ITEMS_PER_PAGE) {
+            if (removeAtDisplaySlot(rawSlot)) {
+                renderPage();
+            }
+            return;
+        }
+        if (rawSlot == NAV_PREV_SLOT && page > 0) {
+            page--;
+            renderPage();
+            return;
+        }
+        if (rawSlot == NAV_NEXT_SLOT && (page + 1) < getTotalPages()) {
+            page++;
+            renderPage();
+            return;
+        }
+        if (rawSlot >= GUI_SIZE) {
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked != null && clicked.getType() != Material.AIR && addMaterial(clicked.getType().name())) {
+                renderPage();
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    void onInventoryDrag(InventoryDragEvent event) {
+        if (this.inv != null && event.getView().getTopInventory().equals(this.inv)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    void onInventoryCreative(InventoryCreativeEvent event) {
+        if (this.inv != null && event.getView().getTopInventory().equals(this.inv)) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler
     void onInventoryClose(InventoryCloseEvent event) {
-        if (!event.getView().getPlayer().equals(this.player)) {
+        if (this.closed || this.inv == null || !event.getInventory().equals(this.inv) || !event.getView().getPlayer().equals(this.player)) {
             return;
         }
 
-        StringBuilder str = new StringBuilder();
-        Arrays.stream(event.getInventory().getContents())
-                .filter(item -> item != null && !item.getType().equals(Material.AIR))
-                .map(item -> item.getType().name()).distinct()
-                .forEach(item -> str.append(item).append(","));
-
-        if (!str.isEmpty()) {
-            region.setFlag(event.getPlayer(), flag, str.substring(0, str.toString().length() - 1));
-            RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.set").replace("{flag}", "'" + flag + "'") + " " + region.getFlagString(flag));
-            RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " SET FLAG " + flag + " of region " + region.getName() + " to " + region.getFlagString(flag));
-        } else {
-            region.removeFlag(flag);
-            RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.removed").replace("{flag}", flag).replace("{region}", region.getName()));
-            RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " REMOVED FLAG " + flag + " of region " + region.getName());
+        if (this.region != null) {
+            String value = formatFlagValue();
+            if (!value.isEmpty()) {
+                if (region.setFlag(event.getPlayer(), flag, value)) {
+                    RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.set").replace("{flag}", "'" + flag + "'") + " " + region.getFlagString(flag));
+                    RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " SET FLAG " + flag + " of region " + region.getName() + " to " + region.getFlagString(flag));
+                }
+            } else {
+                if (region.removeFlag(event.getPlayer(), flag)) {
+                    RedProtect.get().getLanguageManager().sendMessage(player, RedProtect.get().getLanguageManager().get("cmdmanager.region.flag.removed").replace("{flag}", flag).replace("{region}", region.getName()));
+                    RedProtect.get().logger.addLog("(World " + region.getWorld() + ") Player " + player.getName() + " REMOVED FLAG " + flag + " of region " + region.getName());
+                }
+            }
         }
 
         close(false);
@@ -102,31 +235,108 @@ public class ItemFlagGui implements Listener {
 
     @EventHandler
     void onPluginDisable(PluginDisableEvent event) {
-        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Is PluginDisableEvent event.");
-        for (Player play : event.getPlugin().getServer().getOnlinePlayers()) {
-            play.closeInventory();
+        if (!event.getPlugin().equals(RedProtect.get())) {
+            return;
         }
+        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Is PluginDisableEvent event.");
+        close(true);
     }
 
-    private void close(boolean close) {
-        //Unregister Listener
+    private void close(boolean closeInventory) {
+        if (this.closed) {
+            return;
+        }
+        this.closed = true;
         HandlerList.unregisterAll(this);
 
-        // Check for items
-        this.player.updateInventory();
-        Bukkit.getScheduler().runTaskLater(RedProtect.get(), this.player::updateInventory, 1);
-        if (close) this.player.closeInventory();
+        if (closeInventory && this.player.isOnline()) {
+            this.player.closeInventory();
+        }
+        if (RedProtect.get() != null && RedProtect.get().isEnabled() && this.player.isOnline()) {
+            this.player.updateInventory();
+            Bukkit.getScheduler().runTaskLater(RedProtect.get(), this.player::updateInventory, 1);
+        }
 
-        this.guiItems = null;
+        this.inv = null;
         this.region = null;
     }
 
     public void open() {
-        //Register Listener
-        RedProtect.get().getServer().getPluginManager().registerEvents(this, RedProtect.get());
+        RedProtect plugin = RedProtect.get();
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
-        Inventory inv = Bukkit.createInventory(player, 54, "Item flag GUI");
-        inv.setContents(this.guiItems);
-        player.openInventory(inv);
+        String title = flag;
+        if (plugin.guiLang != null) {
+            String localized = plugin.guiLang.getFlagName(flag);
+            String defaultName = plugin.guiLang.getFlagName("default");
+            if (localized != null && !localized.isEmpty() && !localized.equals(defaultName)) {
+                title = localized;
+            }
+        }
+        this.inv = Bukkit.createInventory(player, GUI_SIZE, title);
+        renderPage();
+        player.openInventory(this.inv);
+    }
+
+    private void renderPage() {
+        if (this.inv == null) {
+            return;
+        }
+        int totalPages = getTotalPages();
+        if (page >= totalPages) {
+            page = totalPages - 1;
+        }
+
+        ItemStack[] contents = new ItemStack[GUI_SIZE];
+        int start = page * ITEMS_PER_PAGE;
+        int end = Math.min(selectedMaterials.size(), start + ITEMS_PER_PAGE);
+        for (int i = start; i < end; i++) {
+            contents[i - start] = createEntryItem(selectedMaterials.get(i));
+        }
+
+        ItemStack separator = RedProtect.get().getConfigManager().getGuiSeparator();
+        for (int slot = ITEMS_PER_PAGE; slot < GUI_SIZE; slot++) {
+            contents[slot] = separator;
+        }
+
+        if (page > 0) {
+            contents[NAV_PREV_SLOT] = createNavItem(Material.ARROW,
+                    RedProtect.get().getLanguageManager().get("gui.page.previous"));
+        }
+        String pageLabel = RedProtect.get().getLanguageManager().get("gui.page.number")
+                .replace("{page}", String.valueOf(page + 1))
+                .replace("{total}", String.valueOf(totalPages));
+        contents[NAV_INFO_SLOT] = createNavItem(Material.BOOK, pageLabel);
+
+        if ((page + 1) < totalPages) {
+            contents[NAV_NEXT_SLOT] = createNavItem(Material.ARROW,
+                    RedProtect.get().getLanguageManager().get("gui.page.next"));
+        }
+
+        this.inv.setContents(contents);
+    }
+
+    private ItemStack createEntryItem(String materialName) {
+        Material mat = Material.getMaterial(materialName);
+        if (mat != null && mat.isItem()) {
+            return new ItemStack(mat);
+        }
+        ItemStack icon = new ItemStack(Material.PAPER);
+        ItemMeta meta = icon.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.YELLOW + materialName);
+            icon.setItemMeta(meta);
+        }
+        return icon;
+    }
+
+    private ItemStack createNavItem(Material mat, String displayName) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', displayName));
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 }

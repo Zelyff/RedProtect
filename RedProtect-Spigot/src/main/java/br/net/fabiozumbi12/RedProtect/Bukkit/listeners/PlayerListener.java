@@ -29,6 +29,9 @@ package br.net.fabiozumbi12.RedProtect.Bukkit.listeners;
 import br.net.fabiozumbi12.RedProtect.Bukkit.API.events.EnterExitRegionEvent;
 import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
+import br.net.fabiozumbi12.RedProtect.Bukkit.actions.RegionCreationSupport;
+import br.net.fabiozumbi12.RedProtect.Bukkit.claim.ClaimSessionManager;
+import br.net.fabiozumbi12.RedProtect.Bukkit.guis.BedrockGuiForms;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.ContainerManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.DoorManager;
 import br.net.fabiozumbi12.RedProtect.Bukkit.helpers.SpigotHelper;
@@ -64,6 +67,7 @@ import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.event.world.PortalCreateEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
@@ -171,50 +175,69 @@ public class PlayerListener implements Listener {
         }
 
         if (itemInHand != null && !itemInHand.getType().equals(Material.AIR)) {
+            boolean isMainHand = event.getHand() == EquipmentSlot.HAND;
+            Action action = event.getAction();
+            boolean isWandClick = action == Action.RIGHT_CLICK_BLOCK || action == Action.LEFT_CLICK_BLOCK
+                    || action == Action.RIGHT_CLICK_AIR || action == Action.LEFT_CLICK_AIR;
+            boolean isBlockedBlockClick = event.useInteractedBlock() == Event.Result.DENY
+                    && (action == Action.RIGHT_CLICK_BLOCK || action == Action.LEFT_CLICK_BLOCK);
+            boolean isBlockedAirUse = event.useItemInHand() == Event.Result.DENY
+                    && (action == Action.RIGHT_CLICK_AIR || action == Action.LEFT_CLICK_AIR);
+            boolean passInteractive = action == Action.RIGHT_CLICK_BLOCK && b != null
+                    && !p.isSneaking() && RegionCreationSupport.isInteractiveBlock(b.getType());
             String claimmode = RedProtect.get().getConfigManager().getWorldClaimType(p.getWorld().getName());
-            if (itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.adminWandID) && (p.hasPermission("redprotect.command.admin.wand") || (claimmode.equalsIgnoreCase("WAND") || claimmode.equalsIgnoreCase("BOTH")))) {
-
-                if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) || event.getAction().equals(Action.RIGHT_CLICK_AIR)) {
-                    if (!RedProtect.get().getUtil().canBuildNear(p, l)) {
-                        event.setCancelled(true);
+            if (isMainHand && isWandClick && !isBlockedBlockClick && !isBlockedAirUse
+                    && itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.adminWandID)
+                    && (p.hasPermission("redprotect.command.admin.wand") || (claimmode.equalsIgnoreCase("WAND") || claimmode.equalsIgnoreCase("BOTH")))) {
+                if (ClaimSessionManager.isGpDirectMode(RedProtect.get().getConfigManager().configRoot().region_settings.claim.wand_mode)) {
+                    if (RedProtect.get().getGpClaimHandler() != null && RedProtect.get().getGpClaimHandler().handleWandInteract(event, p, itemInHand)) {
                         return;
                     }
-                    RedProtect.get().secondLocationSelections.put(p, l);
-                    p.sendMessage(RedProtect.get().getLanguageManager().get("playerlistener.wand2") + RedProtect.get().getLanguageManager().get("general.color") + " (" + ChatColor.GOLD + l.getBlockX() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockY() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockZ() + RedProtect.get().getLanguageManager().get("general.color") + ").");
-                    event.setCancelled(true);
-                }
-                if (event.getAction().equals(Action.LEFT_CLICK_BLOCK) || event.getAction().equals(Action.LEFT_CLICK_AIR)) {
-                    if (!RedProtect.get().getUtil().canBuildNear(p, l)) {
+                } else if (!passInteractive) {
+                    if (action.equals(Action.RIGHT_CLICK_BLOCK) || action.equals(Action.RIGHT_CLICK_AIR)) {
+                        if (!RedProtect.get().getUtil().canBuildNear(p, l)) {
+                            event.setCancelled(true);
+                            return;
+                        }
+                        RedProtect.get().secondLocationSelections.put(p, l);
+                        p.sendMessage(RedProtect.get().getLanguageManager().get("playerlistener.wand2") + RedProtect.get().getLanguageManager().get("general.color") + " (" + ChatColor.GOLD + l.getBlockX() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockY() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockZ() + RedProtect.get().getLanguageManager().get("general.color") + ").");
                         event.setCancelled(true);
-                        return;
                     }
-                    RedProtect.get().firstLocationSelections.put(p, l);
-                    p.sendMessage(RedProtect.get().getLanguageManager().get("playerlistener.wand1") + RedProtect.get().getLanguageManager().get("general.color") + " (" + ChatColor.GOLD + l.getBlockX() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockY() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockZ() + RedProtect.get().getLanguageManager().get("general.color") + ").");
-                    event.setCancelled(true);
+                    if (action.equals(Action.LEFT_CLICK_BLOCK) || action.equals(Action.LEFT_CLICK_AIR)) {
+                        if (!RedProtect.get().getUtil().canBuildNear(p, l)) {
+                            event.setCancelled(true);
+                            return;
+                        }
+                        RedProtect.get().firstLocationSelections.put(p, l);
+                        p.sendMessage(RedProtect.get().getLanguageManager().get("playerlistener.wand1") + RedProtect.get().getLanguageManager().get("general.color") + " (" + ChatColor.GOLD + l.getBlockX() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockY() + RedProtect.get().getLanguageManager().get("general.color") + ", " + ChatColor.GOLD + l.getBlockZ() + RedProtect.get().getLanguageManager().get("general.color") + ").");
+                        event.setCancelled(true);
+                    }
+
+                    //show preview border
+                    if (RedProtect.get().firstLocationSelections.containsKey(p) && RedProtect.get().secondLocationSelections.containsKey(p)) {
+                        Location loc1 = RedProtect.get().firstLocationSelections.get(p);
+                        Location loc2 = RedProtect.get().secondLocationSelections.get(p);
+
+                        Region reference = new Region("", loc1, loc2, p.getWorld().getName());
+                        RedProtect.get().getLanguageManager().sendMessage(p, RedProtect.get().getLanguageManager().get("cmdmanager.region.distance") + reference.getArea());
+
+                        if (RedProtect.get().hooks.checkWe() && RedProtect.get().getConfigManager().configRoot().hooks.useWECUI) {
+                            WEHook.setSelectionRP(p, loc1, loc2);
+                        }
+
+                        if (loc1.getWorld().equals(loc2.getWorld()) && reference.getArea() > RedProtect.get().getConfigManager().configRoot().region_settings.max_scan && !RedProtect.get().getPermissionHandler().hasPerm(p, "redprotect.bypass.define-max-distance")) {
+                            RedProtect.get().getLanguageManager().sendMessage(p, String.format(RedProtect.get().getLanguageManager().get("regionbuilder.selection.maxdefine"), RedProtect.get().getConfigManager().configRoot().region_settings.max_scan, reference.getArea()));
+                        } else {
+                            RedProtect.get().getUtil().addBorder(p, reference);
+                        }
+                    }
+                    return;
                 }
-
-                //show preview border
-                if (RedProtect.get().firstLocationSelections.containsKey(p) && RedProtect.get().secondLocationSelections.containsKey(p)) {
-                    Location loc1 = RedProtect.get().firstLocationSelections.get(p);
-                    Location loc2 = RedProtect.get().secondLocationSelections.get(p);
-
-                    Region reference = new Region("", loc1, loc2, p.getWorld().getName());
-                    RedProtect.get().getLanguageManager().sendMessage(p, RedProtect.get().getLanguageManager().get("cmdmanager.region.distance") + reference.getArea());
-
-                    if (RedProtect.get().hooks.checkWe() && RedProtect.get().getConfigManager().configRoot().hooks.useWECUI) {
-                        WEHook.setSelectionRP(p, loc1, loc2);
-                    }
-
-                    if (loc1.getWorld().equals(loc2.getWorld()) && reference.getArea() > RedProtect.get().getConfigManager().configRoot().region_settings.max_scan && !RedProtect.get().getPermissionHandler().hasPerm(p, "redprotect.bypass.define-max-distance")) {
-                        RedProtect.get().getLanguageManager().sendMessage(p, String.format(RedProtect.get().getLanguageManager().get("regionbuilder.selection.maxdefine"), RedProtect.get().getConfigManager().configRoot().region_settings.max_scan, reference.getArea()));
-                    } else {
-                        RedProtect.get().getUtil().addBorder(p, reference);
-                    }
-                }
-                return;
             }
 
-            if (itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.infoWandID)) {
+            if (isMainHand && isWandClick && !passInteractive && !isBlockedBlockClick && !isBlockedAirUse
+                    && itemInHand.getType().name().equalsIgnoreCase(RedProtect.get().getConfigManager().configRoot().wands.infoWandID)
+                    && RedProtect.get().getPermissionHandler().hasCommandPerm(p, "infowand")) {
                 Region r = RedProtect.get().getRegionManager().getTopRegion(l);
                 if (r == null) {
                     RedProtect.get().getLanguageManager().sendMessage(p, "playerlistener.noregion.atblock");
@@ -222,6 +245,7 @@ public class PlayerListener implements Listener {
                     p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "--------------- [" + ChatColor.GOLD + r.getName() + RedProtect.get().getLanguageManager().get("general.color") + "] ---------------");
                     p.sendMessage(r.info());
                     p.sendMessage(RedProtect.get().getLanguageManager().get("general.color") + "-----------------------------------------");
+                    RedProtect.get().getUtil().addBorder(p, r);
                 } else {
                     p.sendMessage(RedProtect.get().getLanguageManager().get("playerlistener.region.entered").replace("{region}", r.getName()).replace("{leaders}", r.getLeadersDesc()));
                 }
@@ -1342,7 +1366,9 @@ public class PlayerListener implements Listener {
             e.setCancelled(true);
             p.updateInventory();
             RedProtect.get().getLanguageManager().sendMessage(p, "playerlistener.region.cantdrop");
+            return;
         }
+        scheduleWandSessionCheck(p);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -1951,6 +1977,102 @@ public class PlayerListener implements Listener {
                     e.setCancelled(true);
                 }
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuitPreviewCleanup(PlayerQuitEvent e) {
+        if (RedProtect.get().getClaimSessionManager() != null) {
+            RedProtect.get().getClaimSessionManager().clearSession(e.getPlayer().getUniqueId());
+            RedProtect.get().getClaimSessionManager().releaseInFlight(e.getPlayer().getUniqueId());
+        }
+        if (RedProtect.get().getPreviewService() != null) {
+            RedProtect.get().getPreviewService().clearPreview(e.getPlayer());
+        }
+        BedrockGuiForms.clearPlayerState(e.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerWorldChangePreviewCleanup(PlayerChangedWorldEvent e) {
+        if (RedProtect.get().getGpClaimHandler() != null
+                && RedProtect.get().getClaimSessionManager() != null
+                && RedProtect.get().getClaimSessionManager().hasSession(e.getPlayer().getUniqueId())) {
+            RedProtect.get().getGpClaimHandler().cancelSelection(e.getPlayer(), true);
+        } else if (RedProtect.get().getPreviewService() != null) {
+            RedProtect.get().getPreviewService().clearPreview(e.getPlayer());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerTeleportPreviewCleanup(PlayerTeleportEvent e) {
+        if (RedProtect.get().getPreviewService() == null) {
+            return;
+        }
+        Location to = e.getTo();
+        Location from = e.getFrom();
+        boolean crossWorld = to == null || to.getWorld() == null || from == null || !to.getWorld().equals(from.getWorld());
+        boolean longSameWorldTeleport = !crossWorld && from.distanceSquared(to) > (64.0 * 64.0);
+        if (crossWorld || longSameWorldTeleport) {
+            RedProtect.get().getPreviewService().clearPreview(e.getPlayer());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerSlotChangeClaimCancel(PlayerItemHeldEvent e) {
+        if (e.getPreviousSlot() != e.getNewSlot()
+                && RedProtect.get().getGpClaimHandler() != null
+                && RedProtect.get().getClaimSessionManager() != null
+                && RedProtect.get().getClaimSessionManager().hasSession(e.getPlayer().getUniqueId())) {
+            RedProtect.get().getGpClaimHandler().cancelSelection(e.getPlayer(), true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerSwapHandClaimCancel(PlayerSwapHandItemsEvent e) {
+        if (RedProtect.get().getClaimSessionManager() != null
+                && RedProtect.get().getClaimSessionManager().hasSession(e.getPlayer().getUniqueId())) {
+            scheduleWandSessionCheck(e.getPlayer());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInventoryMoveWandCancel(InventoryClickEvent e) {
+        if (e.getWhoClicked() instanceof Player p
+                && RedProtect.get().getClaimSessionManager() != null
+                && RedProtect.get().getClaimSessionManager().hasSession(p.getUniqueId())) {
+            scheduleWandSessionCheck(p);
+        }
+    }
+
+    private void scheduleWandSessionCheck(Player player) {
+        if (player == null
+                || !RedProtect.get().isEnabled()
+                || RedProtect.get().getGpClaimHandler() == null
+                || RedProtect.get().getClaimSessionManager() == null
+                || !RedProtect.get().getClaimSessionManager().hasSession(player.getUniqueId())) {
+            return;
+        }
+        String wandId = RedProtect.get().getConfigManager().configRoot().wands.adminWandID;
+        Bukkit.getScheduler().runTask(RedProtect.get(), () -> {
+            if (!player.isOnline()
+                    || RedProtect.get().getGpClaimHandler() == null
+                    || RedProtect.get().getClaimSessionManager() == null
+                    || !RedProtect.get().getClaimSessionManager().hasSession(player.getUniqueId())) {
+                return;
+            }
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            if (mainHand == null || mainHand.getType() == Material.AIR || !mainHand.getType().name().equalsIgnoreCase(wandId)) {
+                RedProtect.get().getGpClaimHandler().cancelSelection(player, true);
+            }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerDeathClaimCancel(PlayerDeathEvent e) {
+        if (RedProtect.get().getGpClaimHandler() != null
+                && RedProtect.get().getClaimSessionManager() != null
+                && RedProtect.get().getClaimSessionManager().hasSession(e.getEntity().getUniqueId())) {
+            RedProtect.get().getGpClaimHandler().cancelSelection(e.getEntity(), false);
         }
     }
 

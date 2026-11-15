@@ -234,6 +234,10 @@ jobs:
           IS_TAG: ${{ steps.meta.outputs.is_tag }}
         run: |
           set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL not set; skipping Discord notification."
+            exit 0
+          fi
           python - << 'EOF' > payload.json
           import json
           import os

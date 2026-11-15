@@ -79,8 +79,9 @@ public class Compat18 implements Listener {
         Player p = e.getPlayer();
         if (r == null) {
             //global flags
-            if (ent instanceof ArmorStand) {
-                if (!RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(l.getWorld().getName()).build) {
+            if (ent instanceof ArmorStand && l.getWorld() != null) {
+                var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(l.getWorld().getName());
+                if (gfWorld != null && !gfWorld.build) {
                     e.setCancelled(true);
                     return;
                 }
@@ -116,8 +117,9 @@ public class Compat18 implements Listener {
 
         if (r1 == null) {
             //global flags
-            if (e1 instanceof ArmorStand && e2 instanceof Player) {
-                if (!RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(loc.getWorld().getName()).build) {
+            if (e1 instanceof ArmorStand && e2 instanceof Player && loc.getWorld() != null) {
+                var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(loc.getWorld().getName());
+                if (gfWorld != null && !gfWorld.build) {
                     e.setCancelled(true);
                 }
             }
@@ -151,8 +153,9 @@ public class Compat18 implements Listener {
 
         if (r1 == null) {
             //global flags
-            if (e1 instanceof ArmorStand && e2 instanceof Player) {
-                if (!RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(loc.getWorld().getName()).build) {
+            if (e1 instanceof ArmorStand && e2 instanceof Player && loc.getWorld() != null) {
+                var gfWorld = RedProtect.get().getConfigManager().globalFlagsRoot().worlds.get(loc.getWorld().getName());
+                if (gfWorld != null && !gfWorld.build) {
                     e.setCancelled(true);
                 }
             }

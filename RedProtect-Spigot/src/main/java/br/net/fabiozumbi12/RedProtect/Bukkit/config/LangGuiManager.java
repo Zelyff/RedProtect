@@ -69,10 +69,10 @@ public class LangGuiManager extends GuiLangCore {
         loadDefaultLang();
 
         if (loadedLang.get("_lang.version") != null) {
-            var pluginVersion = Integer.parseInt(RedProtect.get().getDescription().getVersion().split("-")[0].replace(".", ""));
-            int langVersion = Integer.parseInt(loadedLang.get("_lang.version").toString().split("-")[0].replace(".", ""));
-            if (pluginVersion > langVersion) {
-                loadedLang.put("_lang.version", RedProtect.get().getDescription().getVersion());
+            String pluginVersion = RedProtect.get().getDescription().getVersion();
+            String langVersion = loadedLang.get("_lang.version").toString();
+            if (br.net.fabiozumbi12.RedProtect.Core.helpers.CoreUtil.compareVersions(pluginVersion, langVersion) > 0) {
+                loadedLang.put("_lang.version", pluginVersion);
             }
         }
     }
@@ -86,6 +86,9 @@ public class LangGuiManager extends GuiLangCore {
         if (flagName == null) {
             flagName = getRaw("gui.flags.default.name");
         }
+        if (flagName == null) {
+            flagName = "&e" + flag;
+        }
         return ChatColor.translateAlternateColorCodes('&', flagName);
     }
 
@@ -94,10 +97,14 @@ public class LangGuiManager extends GuiLangCore {
         if (flagDescription == null) {
             flagDescription = getRaw("gui.flags.default.description");
         }
+        if (flagDescription == null) {
+            flagDescription = "";
+        }
         return Arrays.asList(ChatColor.translateAlternateColorCodes('&', flagDescription).split("/n"));
     }
 
     public String getFlagString(String key) {
-        return ChatColor.translateAlternateColorCodes('&', getRaw("gui.strings." + key));
+        String val = getRaw("gui.strings." + key);
+        return ChatColor.translateAlternateColorCodes('&', val != null ? val : key);
     }
 }

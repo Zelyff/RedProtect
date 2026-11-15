@@ -723,20 +723,22 @@ public class RedProtectUtil extends CoreUtil {
             String tableName = sanitizeTableName(RedProtect.get().getConfigManager().configRoot().mysql.table_prefix + world.getName());
 
             try {
-                Class.forName("com.mysql.jdbc.Driver");
-            } catch (ClassNotFoundException e2) {
-                RedProtect.get().logger.severe("Couldn't find the driver for MySQL! com.mysql.jdbc.Driver.");
-                return;
+                Class.forName("com.mysql.cj.jdbc.Driver");
+            } catch (ClassNotFoundException e) {
+                try {
+                    Class.forName("com.mysql.jdbc.Driver");
+                } catch (ClassNotFoundException e2) {
+                    RedProtect.get().logger.severe("Couldn't find the driver for MySQL! com.mysql.cj.jdbc.Driver / com.mysql.jdbc.Driver.");
+                    return;
+                }
             }
-            PreparedStatement st = null;
             try {
                 if (!checkTableExists(tableName)) {
                     //create db
-                    Connection con = DriverManager.getConnection(url + RedProtect.get().getConfigManager().configRoot().mysql.table_prefix + reconnect, RedProtect.get().getConfigManager().configRoot().mysql.user_name, RedProtect.get().getConfigManager().configRoot().mysql.user_pass);
-                    st = con.prepareStatement("CREATE TABLE `" + tableName + "` (name varchar(20) PRIMARY KEY NOT NULL, leaders longtext, admins longtext, members longtext, maxMbrX int, minMbrX int, maxMbrZ int, minMbrZ int, centerX int, centerZ int, minY int, maxY int, date varchar(10), wel longtext, prior int, world varchar(100), value Long not null, tppoint varchar(100), flags longtext, candelete tinyint(1)) CHARACTER SET utf8 COLLATE utf8_general_ci");
-                    st.executeUpdate();
-                    st.close();
-                    st = null;
+                    try (Connection con = DriverManager.getConnection(url + RedProtect.get().getConfigManager().configRoot().mysql.table_prefix + reconnect, RedProtect.get().getConfigManager().configRoot().mysql.user_name, RedProtect.get().getConfigManager().configRoot().mysql.user_pass);
+                         PreparedStatement st = con.prepareStatement("CREATE TABLE `" + tableName + "` (name varchar(20) PRIMARY KEY NOT NULL, leaders longtext, admins longtext, members longtext, maxMbrX int, minMbrX int, maxMbrZ int, minMbrZ int, centerX int, centerZ int, minY int, maxY int, date varchar(10), wel longtext, prior int, world varchar(100), value Long not null, tppoint varchar(100), flags longtext, candelete tinyint(1)) CHARACTER SET utf8 COLLATE utf8_general_ci")) {
+                        st.executeUpdate();
+                    }
                     RedProtect.get().logger.info("Created table: " + tableName + "!");
                 }
                 addNewColumns(tableName);
@@ -747,32 +749,28 @@ public class RedProtectUtil extends CoreUtil {
                 printJarVersion();
                 e.printStackTrace();
                 RedProtect.get().logger.severe("There was an error while parsing SQL, redProtect will still with actual DB setting until you change the connection options or check if a Mysql service is running. Use /rp reload to try again");
-            } finally {
-                if (st != null) {
-                    st.close();
-                }
             }
         }
     }
 
     private void addNewColumns(String tableName) {
-        try {
-            String url = "jdbc:mysql://" + RedProtect.get().getConfigManager().configRoot().mysql.host + "/";
-            Connection con = DriverManager.getConnection(url + RedProtect.get().getConfigManager().configRoot().mysql.db_name, RedProtect.get().getConfigManager().configRoot().mysql.user_name, RedProtect.get().getConfigManager().configRoot().mysql.user_pass);
+        String url = "jdbc:mysql://" + RedProtect.get().getConfigManager().configRoot().mysql.host + "/";
+        try (Connection con = DriverManager.getConnection(url + RedProtect.get().getConfigManager().configRoot().mysql.db_name, RedProtect.get().getConfigManager().configRoot().mysql.user_name, RedProtect.get().getConfigManager().configRoot().mysql.user_pass)) {
             DatabaseMetaData md = con.getMetaData();
-            ResultSet rs = md.getColumns(null, null, tableName, "candelete");
-            if (!rs.next()) {
-                PreparedStatement st = con.prepareStatement("ALTER TABLE `" + tableName + "` ADD `candelete` tinyint(1) NOT NULL default '1'");
-                st.executeUpdate();
+            try (ResultSet rs = md.getColumns(null, null, tableName, "candelete")) {
+                if (!rs.next()) {
+                    try (PreparedStatement st = con.prepareStatement("ALTER TABLE `" + tableName + "` ADD `candelete` tinyint(1) NOT NULL default '1'")) {
+                        st.executeUpdate();
+                    }
+                }
             }
-            rs.close();
-            rs = md.getColumns(null, null, tableName, "canpurge");
-            if (!rs.next()) {
-                PreparedStatement st = con.prepareStatement("ALTER TABLE `" + tableName + "` ADD `canpurge` tinyint(1) NOT NULL default '1'");
-                st.executeUpdate();
+            try (ResultSet rs = md.getColumns(null, null, tableName, "canpurge")) {
+                if (!rs.next()) {
+                    try (PreparedStatement st = con.prepareStatement("ALTER TABLE `" + tableName + "` ADD `canpurge` tinyint(1) NOT NULL default '1'")) {
+                        st.executeUpdate();
+                    }
+                }
             }
-            rs.close();
-            con.close();
         } catch (SQLException e) {
             printJarVersion();
             e.printStackTrace();
@@ -781,15 +779,13 @@ public class RedProtectUtil extends CoreUtil {
 
     private boolean regionExists(Connection dbcon, String name, String tableName) {
         int total = 0;
-        try {
-            PreparedStatement st = dbcon.prepareStatement("SELECT COUNT(*) FROM `" + tableName + "` WHERE LOWER(name) = ?");
+        try (PreparedStatement st = dbcon.prepareStatement("SELECT COUNT(*) FROM `" + tableName + "` WHERE LOWER(name) = ?")) {
             st.setString(1, name.toLowerCase());
-            ResultSet rs = st.executeQuery();
-            if (rs.next()) {
-                total = rs.getInt("COUNT(*)");
+            try (ResultSet rs = st.executeQuery()) {
+                if (rs.next()) {
+                    total = rs.getInt("COUNT(*)");
+                }
             }
-            st.close();
-            rs.close();
         } catch (SQLException e) {
             printJarVersion();
             e.printStackTrace();
@@ -798,18 +794,12 @@ public class RedProtectUtil extends CoreUtil {
     }
 
     private boolean checkTableExists(String tableName) {
-        try {
-            RedProtect.get().logger.debug(LogLevel.DEFAULT, "Checking if table exists... " + tableName);
-            Connection con = DriverManager.getConnection("jdbc:mysql://" + RedProtect.get().getConfigManager().configRoot().mysql.host + "/" + RedProtect.get().getConfigManager().configRoot().mysql.db_name, RedProtect.get().getConfigManager().configRoot().mysql.user_name, RedProtect.get().getConfigManager().configRoot().mysql.user_pass);
+        RedProtect.get().logger.debug(LogLevel.DEFAULT, "Checking if table exists... " + tableName);
+        try (Connection con = DriverManager.getConnection("jdbc:mysql://" + RedProtect.get().getConfigManager().configRoot().mysql.host + "/" + RedProtect.get().getConfigManager().configRoot().mysql.db_name, RedProtect.get().getConfigManager().configRoot().mysql.user_name, RedProtect.get().getConfigManager().configRoot().mysql.user_pass)) {
             DatabaseMetaData meta = con.getMetaData();
-            ResultSet rs = meta.getTables(null, null, tableName, null);
-            if (rs.next()) {
-                con.close();
-                rs.close();
-                return true;
+            try (ResultSet rs = meta.getTables(null, null, tableName, null)) {
+                return rs.next();
             }
-            con.close();
-            rs.close();
         } catch (SQLException e) {
             printJarVersion();
             e.printStackTrace();
@@ -817,9 +807,38 @@ public class RedProtectUtil extends CoreUtil {
         return false;
     }
 
+    public static String flagWaitKey(Region r, String flag) {
+        String regionKey = r != null ? r.getID() : "";
+        String flagKey = flag != null ? flag.toLowerCase(Locale.ROOT) : "";
+        return regionKey + ":" + flagKey;
+    }
+
+    public boolean isFlagWaiting(Region r, String flag) {
+        if (r == null || flag == null) {
+            return false;
+        }
+        return RedProtect.get().changeWait.contains(flagWaitKey(r, flag))
+                || RedProtect.get().changeWait.contains(r.getName() + flag);
+    }
+
+    public void startFlagChanger(final Region r, final String flag, final Player p) {
+        if (r == null || flag == null) {
+            return;
+        }
+        startFlagChangerKey(flagWaitKey(r, flag));
+    }
+
     public void startFlagChanger(final String r, final String flag, final Player p) {
-        RedProtect.get().changeWait.add(r + flag);
-        Bukkit.getScheduler().scheduleSyncDelayedTask(RedProtect.get(), () -> RedProtect.get().changeWait.remove(r + flag), RedProtect.get().getConfigManager().configRoot().flags_configuration.change_flag_delay.seconds * 20L);
+        startFlagChangerKey(r + flag);
+    }
+
+    private void startFlagChangerKey(final String waitKey) {
+        if (RedProtect.get().changeWait.contains(waitKey)) {
+            return;
+        }
+        RedProtect.get().changeWait.add(waitKey);
+        long delayTicks = Math.max(1L, RedProtect.get().getConfigManager().configRoot().flags_configuration.change_flag_delay.seconds * 20L);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(RedProtect.get(), () -> RedProtect.get().changeWait.remove(waitKey), delayTicks);
     }
 
     public int getUpdatedPrior(Region region) {
@@ -845,6 +864,13 @@ public class RedProtectUtil extends CoreUtil {
     }
 
     public void addBorder(final Player p, Region r) {
+        if (p == null || r == null) {
+            return;
+        }
+        if (plugin.getPreviewService() != null) {
+            plugin.getPreviewService().showRegionPreview(p, r);
+            return;
+        }
         final String player = p.getName();
 
         if (borderPlayers.containsKey(player)) {
@@ -884,7 +910,7 @@ public class RedProtectUtil extends CoreUtil {
             if (x % 2 != 0 && intense.equalsIgnoreCase("LOW")) continue;
             for (int z = minZ; z <= maxZ; z++) {
                 if (z % 2 != 0 && intense.equalsIgnoreCase("LOW")) continue;
-                if (x == min.getX() || x == max.getX() || z == min.getZ() || z == max.getZ()) {
+                if (x == minX || x == maxX || z == minZ || z == maxZ) {
                     for (int y = height - borderHeight; y < height + borderHeight; y++) {
                         if (y % 2 != 0 && (intense.equalsIgnoreCase("LOW") || intense.equalsIgnoreCase("NORMAL")))
                             continue;
@@ -925,8 +951,8 @@ public class RedProtectUtil extends CoreUtil {
                 }
                 Set<PlayerRegion> leaders = new HashSet<>();
                 leaders.add(new PlayerRegion(claim.ownerID != null ? claim.ownerID.toString() : pname, pname));
-                Location newmin = claim.getGreaterBoundaryCorner();
-                Location newmax = claim.getLesserBoundaryCorner();
+                Location newmin = claim.getLesserBoundaryCorner().clone();
+                Location newmax = claim.getGreaterBoundaryCorner().clone();
                 newmin.setY(w.getMinHeight());
                 newmax.setY(w.getMaxHeight());
 

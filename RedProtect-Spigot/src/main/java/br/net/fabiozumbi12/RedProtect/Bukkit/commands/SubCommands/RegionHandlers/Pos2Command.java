@@ -51,7 +51,10 @@ public class Pos2Command implements SubCommand {
 
         Player player = (Player) sender;
         String claimmode = RedProtect.get().getConfigManager().getWorldClaimType(player.getWorld().getName());
-        if (!claimmode.equalsIgnoreCase("WAND") && !claimmode.equalsIgnoreCase("BOTH") && !RedProtect.get().getPermissionHandler().hasCommandPerm(player, "redefine")) {
+        if (!claimmode.equalsIgnoreCase("WAND") && !claimmode.equalsIgnoreCase("BOTH")
+                && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.command.admin.redefine")
+                && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.bypass.world")) {
+            RedProtect.get().getLanguageManager().sendMessage(player, "blocklistener.region.blockmode");
             return true;
         }
 
@@ -64,15 +67,17 @@ public class Pos2Command implements SubCommand {
             if (RedProtect.get().firstLocationSelections.containsKey(player) && RedProtect.get().secondLocationSelections.containsKey(player)) {
                 Location loc1 = RedProtect.get().firstLocationSelections.get(player);
                 Location loc2 = RedProtect.get().secondLocationSelections.get(player);
-                if (RedProtect.get().hooks.checkWe() && RedProtect.get().getConfigManager().configRoot().hooks.useWECUI) {
-                    WEHook.setSelectionRP(player, loc1, loc2);
-                }
+                if (loc1.getWorld() != null && loc2.getWorld() != null && loc1.getWorld().equals(loc2.getWorld())) {
+                    if (RedProtect.get().hooks.checkWe() && RedProtect.get().getConfigManager().configRoot().hooks.useWECUI) {
+                        WEHook.setSelectionRP(player, loc1, loc2);
+                    }
 
-                Region reference = new Region("", loc1, loc2, player.getWorld().getName());
-                if (loc1.getWorld().equals(loc2.getWorld()) && reference.getArea() > RedProtect.get().getConfigManager().configRoot().region_settings.max_scan && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.bypass.define-max-distance")) {
-                    RedProtect.get().getLanguageManager().sendMessage(player, String.format(RedProtect.get().getLanguageManager().get("regionbuilder.selection.maxdefine"), RedProtect.get().getConfigManager().configRoot().region_settings.max_scan, reference.getArea()));
-                } else {
-                    RedProtect.get().getUtil().addBorder(player, reference);
+                    Region reference = new Region("", loc1, loc2, player.getWorld().getName());
+                    if (reference.getArea() > RedProtect.get().getConfigManager().configRoot().region_settings.max_scan && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.bypass.define-max-distance")) {
+                        RedProtect.get().getLanguageManager().sendMessage(player, String.format(RedProtect.get().getLanguageManager().get("regionbuilder.selection.maxdefine"), RedProtect.get().getConfigManager().configRoot().region_settings.max_scan, reference.getArea()));
+                    } else {
+                        RedProtect.get().getUtil().addBorder(player, reference);
+                    }
                 }
             }
             return true;

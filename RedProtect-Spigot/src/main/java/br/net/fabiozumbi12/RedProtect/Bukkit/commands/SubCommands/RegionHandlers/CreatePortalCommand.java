@@ -34,6 +34,7 @@ import br.net.fabiozumbi12.RedProtect.Bukkit.commands.SubCommand;
 import br.net.fabiozumbi12.RedProtect.Bukkit.region.RegionBuilder;
 import br.net.fabiozumbi12.RedProtect.Core.region.PlayerRegion;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -78,33 +79,40 @@ public class CreatePortalCommand implements SubCommand {
             }
 
             if (r2[0] != null) {
-                if ((!r2[0].isLeader(player) || !r2[0].isAdmin(player)) && !r2[0].canBuild(player)) {
+                if (!r2[0].isLeader(player) && !r2[0].isAdmin(player)
+                        && !RedProtect.get().getPermissionHandler().hasPerm(player, "redprotect.command.admin.createportal")) {
                     RedProtect.get().getLanguageManager().sendMessage(player, "no.permission");
                     return true;
                 }
-                RedProtect.get().getLanguageManager().sendMessage(player, String.format(RedProtect.get().getLanguageManager().get("cmdmanager.region.portalcreated"), name, args[1], w.getName()));
-                RedProtect.get().getLanguageManager().sendMessage(player, "cmdmanager.region.portalhint");
-                r2[0].setFlag(sender, "set-portal", args[1] + " " + w.getName());
-
-                RedProtect.get().logger.addLog("(World " + r2[0].getWorld() + ") Player " + player.getName() + " CREATED A PORTAL " + r2[0].getName() + " to " + args[1] + " database " + w.getName());
+                if (r2[0].setFlag(sender, "set-portal", args[1] + " " + w.getName())) {
+                    RedProtect.get().getLanguageManager().sendMessage(player, String.format(RedProtect.get().getLanguageManager().get("cmdmanager.region.portalcreated"), name, args[1], w.getName()));
+                    RedProtect.get().getLanguageManager().sendMessage(player, "cmdmanager.region.portalhint");
+                    RedProtect.get().logger.addLog("(World " + r2[0].getWorld() + ") Player " + player.getName() + " CREATED A PORTAL " + r2[0].getName() + " to " + args[1] + " database " + w.getName());
+                }
             } else {
                 RedProtect.get().getLanguageManager().sendMessage(player, "regionbuilder.creating");
+                Location loc1 = RedProtect.get().firstLocationSelections.get(player);
+                Location loc2 = RedProtect.get().secondLocationSelections.get(player);
+                String playerWorldName = player.getWorld().getName();
 
                 // Run claim async
                 Bukkit.getScheduler().runTaskAsynchronously(RedProtect.get(), () -> {
-                    RegionBuilder rb2 = new DefineRegionBuilder(player, RedProtect.get().firstLocationSelections.get(player), RedProtect.get().secondLocationSelections.get(player), name, serverName, new HashSet<>(), true);
-                    if (rb2.ready()) {
-                        r2[0] = rb2.build();
-                        RedProtect.get().getLanguageManager().sendMessage(player, String.format(RedProtect.get().getLanguageManager().get("cmdmanager.region.portalcreated"), name, args[1], w.getName()));
-                        RedProtect.get().getLanguageManager().sendMessage(player, "cmdmanager.region.portalhint");
-
-                        r2[0].setFlag(sender, "set-portal", args[1] + " " + w.getName());
-                        RedProtect.get().getRegionManager().add(r2[0], player.getWorld().getName());
-
-                        RedProtect.get().firstLocationSelections.remove(player);
-                        RedProtect.get().secondLocationSelections.remove(player);
-
-                        RedProtect.get().logger.addLog("(World " + r2[0].getWorld() + ") Player " + player.getName() + " CREATED A PORTAL " + r2[0].getName() + " to " + args[1] + " database " + w.getName());
+                    RegionBuilder rb2 = new DefineRegionBuilder(player, loc1, loc2, name, serverName, new HashSet<>(), true);
+                    if (rb2.ready() && RedProtect.get().isEnabled()) {
+                        Region built = rb2.build();
+                        Bukkit.getScheduler().runTask(RedProtect.get(), () -> {
+                            if (!rb2.isCommitted()) {
+                                RedProtect.get().getRegionManager().add(built, playerWorldName);
+                            }
+                            built.setFlag(sender, "set-portal", args[1] + " " + w.getName());
+                            RedProtect.get().firstLocationSelections.remove(player);
+                            RedProtect.get().secondLocationSelections.remove(player);
+                            if (player.isOnline()) {
+                                RedProtect.get().getLanguageManager().sendMessage(player, String.format(RedProtect.get().getLanguageManager().get("cmdmanager.region.portalcreated"), name, args[1], w.getName()));
+                                RedProtect.get().getLanguageManager().sendMessage(player, "cmdmanager.region.portalhint");
+                            }
+                            RedProtect.get().logger.addLog("(World " + built.getWorld() + ") Player " + player.getName() + " CREATED A PORTAL " + built.getName() + " to " + args[1] + " database " + w.getName());
+                        });
                     }
                 });
             }
